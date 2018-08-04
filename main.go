@@ -1,61 +1,26 @@
 package main
 
 import (
-	"fmt"
-	"runtime"
+	"image"
+	"image/color"
 
-	"github.com/go-gl/gl/v4.3-core/gl"
-	"github.com/go-gl/glfw/v3.2/glfw"
-	"github.com/gobuffalo/packr"
-	"home.leo-peltier.fr/poussin/render"
+	"home.leo-peltier.fr/poussin/renderer/gl"
 )
 
-func init() {
-	runtime.LockOSThread()
-}
-
 func main() {
-	if err := glfw.Init(); err != nil {
-		panic(fmt.Errorf("could not init GLFW: %s", err))
-	}
-	defer glfw.Terminate()
+	nextFrame := make(chan int, 1)
+	quit := make(chan int, 1)
+	fb := image.NewRGBA(image.Rect(0, 0, 160, 144))
 
-	glfw.WindowHint(glfw.Resizable, glfw.True)
-	glfw.WindowHint(glfw.ContextVersionMajor, 4)
-	glfw.WindowHint(glfw.ContextVersionMinor, 3)
-	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-
-	window, err := glfw.CreateWindow(640, 480, "Poussin", nil, nil)
-	if err != nil {
-		panic(fmt.Errorf("could not create window: %s", err))
+	for x := 0; x < fb.Rect.Size().X; x++ {
+		for y := 0; y < fb.Rect.Size().Y; y++ {
+			fb.SetRGBA(x, y, color.RGBA{255, 0, 255, 255})
+		}
 	}
 
-	window.MakeContextCurrent()
-	if err := gl.Init(); err != nil {
-		panic(fmt.Errorf("could not init OpenGL: %s", err))
-	}
+	go gl.Run(fb, nextFrame, quit)
 
-	glfw.SwapInterval(1)
-
-	box := packr.NewBox("./assets/shaders")
-	program, err := render.LoadProgram(
-		box.String("default.vert"),
-		box.String("default.frag"),
-	)
-	if err != nil {
-		panic(fmt.Errorf("could not load shaders: %s", err))
-	}
-
-	for !window.ShouldClose() {
-		gl.Disable(gl.DEPTH_TEST)
-		gl.Disable(gl.BLEND)
-		gl.Disable(gl.CULL_FACE)
-		gl.Clear(gl.COLOR_BUFFER_BIT)
-
-		gl.UseProgram(program)
-
-		window.SwapBuffers()
-		glfw.PollEvents()
+	select {
+	case <-quit:
 	}
 }
