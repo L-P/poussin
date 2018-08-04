@@ -148,7 +148,7 @@ func initWindow() *glfw.Window {
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 
-	window, err := glfw.CreateWindow(640, 480, "Poussin", nil, nil)
+	window, err := glfw.CreateWindow(640, 576, "Poussin", nil, nil)
 	if err != nil {
 		panic(fmt.Errorf("could not create window: %s", err))
 	}
