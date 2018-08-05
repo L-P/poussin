@@ -34,83 +34,70 @@ func i_nop(*CPU, byte, byte) {}
 
 // Increment register C
 func i_inc_c(cpu *CPU, _, _ byte) {
-	C := uint8(cpu.Registers.BC & 0x00FF)
+	C := cpu.GetC()
 
-	if (((C & 0xF) + 1) & 0x10) > 0 {
-		cpu.SetFlag(FlagH)
-	} else {
-		cpu.ClearFlag(FlagH)
-	}
+	cpu.FlagHalfCarry = (((C & 0xF) + 1) & 0x10) > 0
 
 	C++
-	cpu.Registers.BC = (cpu.Registers.BC & 0xFF00) | uint16(C)
-
-	if C == 0 {
-		cpu.SetFlag(FlagZ)
-	} else {
-		cpu.ClearFlag(FlagZ)
-	}
-
-	cpu.ClearFlag(FlagN)
+	cpu.SetC(C)
+	cpu.FlagZero = C == 0
+	cpu.FlagSubstract = false
 }
 
 // Load A into 0xFF00 + C
 func i_ld_pc_a(cpu *CPU, _, _ byte) {
-	addr := 0xFF00 | (cpu.Registers.BC & 0x00FF)
-	cpu.MMU.Set8b(addr, cpu.Registers.A)
+	cpu.MMU.Set8b(0xFF00|uint16(cpu.GetC()), cpu.A)
 }
 
 // Load 8b value into C
 func i_ld_c(cpu *CPU, l, _ byte) {
-	cpu.Registers.BC &= 0xFF00
-	cpu.Registers.BC |= uint16(l)
+	cpu.SetC(l)
 }
 
 // Load 8b value into B
 func i_ld_b(cpu *CPU, l, _ byte) {
-	cpu.Registers.BC &= 0x00FF
-	cpu.Registers.BC |= uint16(l) << 8
+	cpu.SetB(l)
 }
 
 // Load 8b value into A
 func i_ld_a(cpu *CPU, l, _ byte) {
-	cpu.Registers.A = l
+	cpu.A = l
 }
 
 // Load 16b value into stack pointer
 func i_ld_sp(cpu *CPU, l, h byte) {
-	cpu.Registers.SP = (uint16(h) << 8) | uint16(l)
+	cpu.SP = (uint16(h) << 8) | uint16(l)
 }
 
 // Load 16b value into HL register
 func i_ld_hl(cpu *CPU, l, h byte) {
-	cpu.Registers.HL = (uint16(h) << 8) | uint16(l)
+	cpu.HL = (uint16(h) << 8) | uint16(l)
 }
 
 // Load 16b value into DE register
 func i_ld_de(cpu *CPU, l, h byte) {
-	cpu.Registers.DE = (uint16(h) << 8) | uint16(l)
+	cpu.DE = (uint16(h) << 8) | uint16(l)
 }
 
 // Put A into address pointed by HL and decrement HL
 func i_ldd_phl_a(cpu *CPU, l, _ byte) {
-	cpu.MMU.Set8b(cpu.Registers.HL, cpu.Registers.A)
-	cpu.Registers.HL--
+	cpu.MMU.Set8b(cpu.HL, cpu.A)
+	cpu.HL--
 }
 
 // Put A into address pointed by HL
 func i_ld_phl_a(cpu *CPU, l, _ byte) {
-	cpu.MMU.Set8b(cpu.Registers.HL, cpu.Registers.A)
+	cpu.MMU.Set8b(cpu.HL, cpu.A)
 }
 
 // Put A into address 0xFF00+l
 func i_ldh_pn_a(cpu *CPU, l, _ byte) {
-	cpu.MMU.Set8b(0xFF00+uint16(l), cpu.Registers.A)
+	cpu.MMU.Set8b(0xFF00+uint16(l), cpu.A)
 }
 
 // XOR A against itself, effectively clearing it and all flags
 func i_xor_a(cpu *CPU, _, _ byte) {
-	cpu.Registers.F = 0
+	cpu.ClearFlags()
 }
 
 // Tells our virtual CPU the next instruction is from the CB block
@@ -120,50 +107,46 @@ func i_prefix_cb(cpu *CPU, _, _ byte) {
 
 // Pushes the address of the next instruction onto the stack and jump
 func i_call(cpu *CPU, l, h byte) {
-	cpu.StackPush16b(cpu.Registers.PC)
-	cpu.Registers.PC = (uint16(h) << 8) | uint16(l)
+	cpu.StackPush16b(cpu.PC)
+	cpu.PC = (uint16(h) << 8) | uint16(l)
 }
 
 // Pushes BC to the stack
 func i_push_bc(cpu *CPU, l, h byte) {
-	cpu.StackPush16b(cpu.Registers.BC)
+	cpu.StackPush16b(cpu.BC)
 }
 
 // Load the value at address pointed by DE in A
 func i_ld_a_pde(cpu *CPU, _, _ byte) {
-	cpu.Registers.A = cpu.MMU.Get8b(cpu.Registers.DE)
+	cpu.A = cpu.MMU.Get8b(cpu.DE)
 }
 
 // Load the value of C into A
 func i_ld_c_a(cpu *CPU, _, _ byte) {
-	cpu.Registers.A = byte(cpu.Registers.BC & 0x00FF)
+	cpu.A = cpu.GetC()
 }
 
 // Jump to signed addr offset if Z flag is not set
 func i_jr_nz(cpu *CPU, l, _ byte) {
-	if !cpu.GetFlag(FlagZ) {
-		addr := int16(cpu.Registers.PC) + int16(int8(l))
-		cpu.Registers.PC = uint16(addr)
+	if !cpu.FlagZero {
+		addr := int16(cpu.PC) + int16(int8(l))
+		cpu.PC = uint16(addr)
 	}
 }
 
 func i_rla(cpu *CPU, _, _ byte) {
 	oldCarry := uint8(0)
-	if cpu.GetFlag(FlagC) {
+	if cpu.FlagCarry {
 		oldCarry = uint8(1)
 	}
 
-	if (cpu.Registers.A & (1 << 7)) > 0 {
-		cpu.SetFlag(FlagC)
-	} else {
-		cpu.ClearFlag(FlagC)
-	}
+	cpu.FlagCarry = (cpu.A & (1 << 7)) > 0
 
-	cpu.Registers.A = (cpu.Registers.A << 1) | oldCarry
+	cpu.A = (cpu.A << 1) | oldCarry
 
 	// GBCPUman says the flag depends on the final value, other sources says
 	// RLA always clear the flags, no sure who to trust.
-	cpu.ClearFlag(FlagZ)
-	cpu.ClearFlag(FlagN)
-	cpu.ClearFlag(FlagH)
+	cpu.FlagZero = false
+	cpu.FlagSubstract = false
+	cpu.FlagHalfCarry = false
 }

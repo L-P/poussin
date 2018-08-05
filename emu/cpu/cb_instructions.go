@@ -7,43 +7,28 @@ var CBInstructions = map[byte]Instruction{
 
 // Rotates C left through Carry flag
 func i_cb_rl_c(cpu *CPU, _, _ byte) {
-	C := uint8(cpu.Registers.BC & 0x00FF)
+	C := uint8(cpu.BC & 0x00FF)
 
 	oldCarry := uint8(0)
-	if cpu.GetFlag(FlagC) {
+	if cpu.FlagCarry {
 		oldCarry = uint8(1)
 	}
 
-	if (C & (1 << 7)) > 0 {
-		cpu.SetFlag(FlagC)
-	} else {
-		cpu.ClearFlag(FlagC)
-	}
+	cpu.FlagCarry = (C & (1 << 7)) > 0
 
 	C = (C << 1) | oldCarry
-	cpu.Registers.BC &= 0xFF00
-	cpu.Registers.BC |= uint16(C)
 
-	if C == 0 {
-		cpu.SetFlag(FlagZ)
-	} else {
-		cpu.ClearFlag(FlagZ)
-	}
-
-	cpu.ClearFlag(FlagN)
-	cpu.ClearFlag(FlagH)
+	cpu.SetC(C)
+	cpu.FlagZero = C == 0
+	cpu.FlagSubstract = false
+	cpu.FlagHalfCarry = false
 }
 
 // Sets flag Z if the nth bit of H is not set
 func i_cb_bit_x_h(bit uint) InstructionImplementation {
 	return func(cpu *CPU, _, _ byte) {
-		if (cpu.Registers.HL & (1 << (bit + 8))) > 0 {
-			cpu.ClearFlag(FlagZ)
-		} else {
-			cpu.SetFlag(FlagZ)
-		}
-
-		cpu.ClearFlag(FlagN)
-		cpu.SetFlag(FlagH)
+		cpu.FlagZero = (cpu.HL & (1 << (bit + 8))) == 0
+		cpu.FlagSubstract = false
+		cpu.FlagHalfCarry = true
 	}
 }

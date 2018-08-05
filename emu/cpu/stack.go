@@ -11,7 +11,7 @@ func (cpu *CPU) StackPush16b(data ...uint16) {
 
 func (cpu *CPU) StackPush8b(data ...byte) {
 	for _, v := range data {
-		cpu.Registers.SP--
-		cpu.MMU.Set8b(cpu.Registers.SP, v)
+		cpu.SP--
+		cpu.MMU.Set8b(cpu.SP, v)
 	}
 }
