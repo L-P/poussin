@@ -22,6 +22,13 @@ func (c *CPU) SetL(b byte) {
 	c.HL = (c.HL & 0xFF00) | uint16(b)
 }
 
+func (c *CPU) GetA() byte {
+	return c.A
+}
+func (c *CPU) SetA(b byte) {
+	c.A = b
+}
+
 // Low/High byte getters for 16b registers
 func (c *CPU) GetB() byte {
 	return byte((c.BC & 0xFF00) >> 8)
@@ -47,6 +54,41 @@ func (c *CPU) ClearFlags() {
 	c.FlagSubstract = false
 	c.FlagHalfCarry = false
 	c.FlagCarry = false
+}
+
+// Returns the get/set function for a register given by name (eg. 'H')
+func (c *CPU) GetRegisterCallbacks(name byte) (get func() byte, set func(byte)) {
+	switch name {
+	case 'A':
+		return c.GetA, c.SetA
+	case 'B':
+		return c.GetB, c.SetB
+	case 'C':
+		return c.GetC, c.SetC
+	case 'D':
+		return c.GetD, c.SetD
+	case 'E':
+		return c.GetE, c.SetE
+	case 'H':
+		return c.GetH, c.SetH
+	case 'L':
+		return c.GetL, c.SetL
+	}
+
+	panic("unreachable")
+}
+
+func (c *CPU) GetRegisterAddress(name string) *uint16 {
+	switch name {
+	case "BC":
+		return &c.BC
+	case "DE":
+		return &c.DE
+	case "HL":
+		return &c.HL
+	}
+
+	panic("unreachable")
 }
 
 func (c *CPU) String() string {

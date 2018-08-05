@@ -49,7 +49,9 @@ func (c *CPU) Step() error {
 		h = c.MMU.Peek(c.PC + 2)
 	}
 
-	defer func() { fmt.Printf("%-22s %s\n", ins.String(l, h), c.String()) }()
+	if opcode != 0xCB { // don't clutter with PREFIX CB
+		defer func() { fmt.Printf("%-22s %s\n", ins.String(l, h), c.String()) }()
+	}
 
 	return c.Execute(ins, l, h)
 }

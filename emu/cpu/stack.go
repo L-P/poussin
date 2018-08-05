@@ -1,17 +1,26 @@
 package cpu
 
-func (cpu *CPU) StackPush16b(data ...uint16) {
+func (c *CPU) StackPush16b(data ...uint16) {
 	for _, v := range data {
-		cpu.StackPush8b(
+		c.StackPush8b(
 			uint8((v & 0xFF00 >> 8)),
 			uint8(v&0x00FF),
 		)
 	}
 }
 
-func (cpu *CPU) StackPush8b(data ...byte) {
+func (c *CPU) StackPush8b(data ...byte) {
 	for _, v := range data {
-		cpu.SP--
-		cpu.MMU.Set8b(cpu.SP, v)
+		c.SP--
+		c.MMU.Set8b(c.SP, v)
 	}
+}
+
+func (c *CPU) StackPop16b() uint16 {
+	return uint16(c.StackPop8b()) | (uint16(c.StackPop8b()) << 8)
+}
+
+func (c *CPU) StackPop8b() byte {
+	c.SP++
+	return c.MMU.Get8b(c.SP - 1)
 }
