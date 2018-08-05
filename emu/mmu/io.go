@@ -3,11 +3,11 @@ package mmu
 import "fmt"
 
 const (
-	IOP1             = uint16(0xFF00) // P1 Joypad (R/W)
-	IODIV            = 0xFF04         // Divider Register (R/W*)
-	IOSCY            = 0xFF42         // BG Scroll Y (R/W)
-	IOSCX            = 0xFF43         // BG Scroll X (R/W)
-	IOLY             = 0xFF44         // LCDC Y-Coordinate
+	IOP1             = 0xFF00 // P1 Joypad (R/W)
+	IODIV            = 0xFF04 // Divider Register (R/W*)
+	IOSCY            = 0xFF42 // BG Scroll Y (R/W)
+	IOSCX            = 0xFF43 // BG Scroll X (R/W)
+	IOLY             = 0xFF44 // LCDC Y-Coordinate
 	IODisableBootROM = 0xFF50
 )
 

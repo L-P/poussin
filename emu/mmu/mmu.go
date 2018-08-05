@@ -1,6 +1,7 @@
 package mmu
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -88,8 +89,15 @@ func (m *MMU) LoadBootROM(rom []byte) error {
 }
 
 func (m *MMU) LoadROM(rom []byte) error {
-	count := copy(m.ROM[:], rom)
-	fmt.Errorf("%d bytes ROM loaded", count)
+	copy(m.ROM[:], rom)
+
+	h := NewROMHeader(rom)
+	fmt.Printf("ROM loaded: %s\n", h.String())
+
+	if h.CGBOnly {
+		return errors.New("only DMG games are supported")
+	}
+
 	return nil
 }
 
