@@ -96,8 +96,7 @@ func (m *MMU) LoadROM(rom []byte) error {
 // Writes a single byte of data
 func (m *MMU) Set8b(addr uint16, value byte) {
 	if AddressToMemoryType(addr) == IERegister {
-		fmt.Printf("Set IERegister %02X\n", value)
-		return
+		panic(fmt.Errorf("Set IERegister %02X\n", value))
 	}
 
 	m.Mem[addr] = value

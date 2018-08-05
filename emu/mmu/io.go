@@ -1,5 +1,7 @@
 package mmu
 
+import "fmt"
+
 const (
 	IOP1             = uint16(0xFF00) // P1 Joypad (R/W)
 	IODIV            = 0xFF04         // Divider Register (R/W*)
@@ -11,20 +13,19 @@ const (
 
 func (m *MMU) ReadIO(addr uint16) byte {
 	switch addr {
-	case IOLY:
-		return 144 // DEBUG
+	case IODisableBootROM:
+		return m.Mem[addr]
 	}
 
-	return 0
+	panic(fmt.Errorf("unhandled I/O read at %02X", addr))
 }
 
 func (m *MMU) SetIO(addr uint16, value byte) {
 	switch addr {
 	case IODisableBootROM:
 		m.Mem[addr] = 1 // Boot ROM can never be re-enabled
-	case IODIV:
-		fallthrough
-	case IOLY:
-		m.Mem[addr] = 0
+		return
 	}
+
+	panic(fmt.Errorf("unhandled I/O read at %02X", addr))
 }
