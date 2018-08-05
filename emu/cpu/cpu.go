@@ -51,9 +51,23 @@ type Registers struct {
 }
 
 func (r Registers) String() string {
+	flags := [5]byte{'-', '-', '-', '-', 0x00}
+	if (r.F & FlagZ) > 0 {
+		flags[0] = 'Z'
+	}
+	if (r.F & FlagN) > 0 {
+		flags[1] = 'N'
+	}
+	if (r.F & FlagH) > 0 {
+		flags[2] = 'H'
+	}
+	if (r.F & FlagC) > 0 {
+		flags[3] = 'C'
+	}
+
 	return fmt.Sprintf(
-		"A:%02X BC:%04X DE:%04X HL:%04X SP:%04X PC:%04X Flags:%08b",
-		r.A, r.BC, r.DE, r.HL, r.SP, r.PC, r.F,
+		"A:%02X BC:%04X DE:%04X HL:%04X SP:%04X PC:%04X Flags:%s",
+		r.A, r.BC, r.DE, r.HL, r.SP, r.PC, flags,
 	)
 }
 
