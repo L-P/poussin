@@ -52,8 +52,8 @@ type Registers struct {
 
 func (r Registers) String() string {
 	return fmt.Sprintf(
-		"A:%02X F:%02X BC:%04X DE:%04X HL:%04X SP:%04X PC:%04X",
-		r.A, r.F, r.BC, r.DE, r.HL, r.SP, r.PC,
+		"A:%02X BC:%04X DE:%04X HL:%04X SP:%04X PC:%04X Flags:%08b",
+		r.A, r.BC, r.DE, r.HL, r.SP, r.PC, r.F,
 	)
 }
 
@@ -78,7 +78,7 @@ func (cpu *CPU) Step() error {
 		h = cpu.MMU.Peek(cpu.Registers.PC + 2)
 	}
 
-	defer func() { fmt.Printf("%-24s %s\n", ins.String(l, h), cpu.Registers.String()) }()
+	defer func() { fmt.Printf("%-22s %s\n", ins.String(l, h), cpu.Registers.String()) }()
 
 	return cpu.Execute(ins, l, h)
 }

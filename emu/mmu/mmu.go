@@ -27,6 +27,11 @@ func (m *MMU) Set8b(addr uint16, value byte) {
 	m.Mem[addr] = value
 }
 
+// Returns a single byte of data
+func (m *MMU) Get8b(addr uint16) byte {
+	return m.Mem[addr]
+}
+
 // Peek returns a single byte from raw memory, should not be used by instructions.
 func (m *MMU) Peek(addr uint16) byte {
 	return m.Mem[addr]
