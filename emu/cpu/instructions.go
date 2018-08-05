@@ -3,6 +3,9 @@ package cpu
 var Instructions = map[byte]Instruction{
 	0x00: {1, 4, "NOP", i_nop},
 
+	0xF3: {1, 4, "DI", i_nop}, // TODO
+	0xFB: {1, 4, "EI", i_nop}, // TODO
+
 	0x3C: {1, 4, "INC A", i_inc_a},
 	0x04: {1, 4, "INC B", i_inc_n('B')},
 	0x0C: {1, 4, "INC C", i_inc_n('C')},
@@ -79,6 +82,7 @@ var Instructions = map[byte]Instruction{
 	0x28: {2, 8, "JR Z,$%02X", i_jr_z},
 
 	0xC1: {1, 12, "POP BC", i_pop_bc},
+	0xC3: {3, 12, "JP $%02X%02X", i_jp_nn},
 	0xC5: {1, 16, "PUSH BC", i_push_bc},
 	0xCB: {1, 4, "PREFIX CB", i_prefix_cb},
 	0xCD: {3, 12, "CALL $%02X%02X", i_call},
@@ -210,19 +214,19 @@ func i_ld_de(c *CPU, l, h byte) {
 }
 
 // Puts A into address pointed by HL and decrement HL
-func i_ldd_phl_a(c *CPU, l, _ byte) {
+func i_ldd_phl_a(c *CPU, _, _ byte) {
 	c.MMU.Set8b(c.HL, c.A)
 	c.HL--
 }
 
 // Puts A into address pointed by HL and increment HL
-func i_ldi_phl_a(c *CPU, l, _ byte) {
+func i_ldi_phl_a(c *CPU, _, _ byte) {
 	c.MMU.Set8b(c.HL, c.A)
 	c.HL++
 }
 
 // Puts A into address pointed by HL
-func i_ld_phl_a(c *CPU, l, _ byte) {
+func i_ld_phl_a(c *CPU, _, _ byte) {
 	c.MMU.Set8b(c.HL, c.A)
 }
 
@@ -343,4 +347,9 @@ func i_rla(c *CPU, _, _ byte) {
 	c.FlagZero = false
 	c.FlagSubstract = false
 	c.FlagHalfCarry = false
+}
+
+// Jumps to given address
+func i_jp_nn(c *CPU, l, h byte) {
+	c.PC = uint16(l) | (uint16(h) << 8)
 }
