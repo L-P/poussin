@@ -1,9 +1,13 @@
 package mmu
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type MMU struct {
-	Mem [0xFFFF]byte
+	Mem  [0xFFFF]byte
+	Boot [256]byte
+	ROM  [1024 * 1024 * 8]byte // Per Wikipedia, a GB ROM is 8 MiB max
 }
 
 type Type int
@@ -76,10 +80,16 @@ func (m *MMU) LoadBootROM(rom []byte) error {
 		return fmt.Errorf("boot ROM should be 256 bytes, got %d", len(rom))
 	}
 
-	if count := copy(m.Mem[:], rom); count != 256 {
+	if count := copy(m.Boot[:], rom); count != 256 {
 		return fmt.Errorf("copied less than 256 bytes: %d", count)
 	}
 
+	return nil
+}
+
+func (m *MMU) LoadROM(rom []byte) error {
+	count := copy(m.ROM[:], rom)
+	fmt.Errorf("%d bytes ROM loaded", count)
 	return nil
 }
 
@@ -90,8 +100,9 @@ func (m *MMU) Set8b(addr uint16, value byte) {
 
 // Returns a single byte of data
 func (m *MMU) Get8b(addr uint16) byte {
-	fmt.Printf("Read at %04X from %s\n", addr, MemoryTypeName(AddressToMemoryType(addr)))
 	switch AddressToMemoryType(addr) {
+	case ROM0:
+		return m.ReadROM0(addr)
 	case IO:
 		return m.ReadIO(addr)
 	default:
@@ -99,7 +110,11 @@ func (m *MMU) Get8b(addr uint16) byte {
 	}
 }
 
-// Peek returns a single byte from raw memory, should not be used by instructions.
-func (m *MMU) Peek(addr uint16) byte {
-	return m.Mem[addr]
+func (m *MMU) ReadROM0(addr uint16) byte {
+	// During bootstrap 0x0000-0x00FF is mapped to boot ROM
+	if m.ReadIO(IODisableBootROM) == 0 && addr <= 0xFF {
+		return m.Boot[addr]
+	}
+
+	return m.ROM[addr]
 }

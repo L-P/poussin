@@ -22,6 +22,8 @@ var Instructions = map[byte]Instruction{
 	0x25: {1, 4, "DEC H", i_dec_n('H')},
 	0x2D: {1, 4, "DEC L", i_dec_n('L')},
 
+	0x86: {1, 8, "ADD A,(HL)", i_add_a_phl},
+
 	0x97: {1, 4, "SUB A", i_sub_n('A')},
 	0x90: {1, 4, "SUB B", i_sub_n('B')},
 	0x91: {1, 4, "SUB C", i_sub_n('C')},
@@ -69,7 +71,9 @@ var Instructions = map[byte]Instruction{
 	0xE0: {2, 12, "LDH ($%02X),A", i_ldh_pn_a},
 	0xF0: {2, 12, "LDH A,($%02X)", i_ldh_a_pn},
 
+	0xBE: {1, 8, "CP (HL)", i_cp_phl},
 	0xFE: {2, 8, "CP $%02X", i_cp_n},
+
 	0x18: {2, 8, "JR,$%02X", i_jr},
 	0x20: {2, 8, "JR NZ,$%02X", i_jr_nz},
 	0x28: {2, 8, "JR Z,$%02X", i_jr_z},
@@ -307,6 +311,27 @@ func i_cp_n(c *CPU, l, _ byte) {
 	c.FlagSubstract = true
 	c.FlagHalfCarry = (c.A & 0xF) < (l & 0xF)
 	c.FlagCarry = c.A < l
+}
+
+// Adds the value at *HL to A
+func i_add_a_phl(c *CPU, _, _ byte) {
+	old := c.A
+	add := c.MMU.Get8b(c.HL)
+
+	c.A += add
+	c.FlagZero = c.A == 0
+	c.FlagSubstract = false
+	c.FlagHalfCarry = (((old & 0xF) + (add & 0xF)) & 0x10) > 0
+	c.FlagCarry = c.A < old
+}
+
+// Compare A with the value at *HL
+func i_cp_phl(c *CPU, _, _ byte) {
+	v := c.MMU.Get8b(c.HL)
+	c.FlagZero = c.A-v == 0
+	c.FlagSubstract = true
+	c.FlagHalfCarry = (c.A & 0xF) < (v & 0xF)
+	c.FlagCarry = c.A < v
 }
 
 // Rotates register A left through carry

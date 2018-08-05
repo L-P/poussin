@@ -35,7 +35,7 @@ func New() CPU {
 }
 
 func (c *CPU) Step() error {
-	opcode := c.MMU.Peek(c.PC)
+	opcode := c.MMU.Get8b(c.PC)
 	ins, err := c.Decode(opcode)
 	if err != nil {
 		return err
@@ -43,10 +43,10 @@ func (c *CPU) Step() error {
 
 	var l, h byte
 	if ins.Length > 1 {
-		l = c.MMU.Peek(c.PC + 1)
+		l = c.MMU.Get8b(c.PC + 1)
 	}
 	if ins.Length > 2 {
-		h = c.MMU.Peek(c.PC + 2)
+		h = c.MMU.Get8b(c.PC + 2)
 	}
 
 	if opcode != 0xCB { // don't clutter with PREFIX CB

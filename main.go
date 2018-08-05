@@ -27,18 +27,26 @@ func main() {
 		}
 	// */
 
-	if len(os.Args) != 2 {
-		fmt.Println("Usage: poussin BOOTROM")
+	if len(os.Args) != 3 {
+		fmt.Println("Usage: poussin BOOTROM ROM")
 		os.Exit(1)
 	}
 
 	gb := emu.NewGameboy()
+
 	bootRom, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
+	if err := gb.LoadBootROM(bootRom); err != nil {
+		panic(err)
+	}
 
-	if err := gb.Boot(bootRom); err != nil {
+	rom, err := ioutil.ReadFile(os.Args[2])
+	if err != nil {
+		panic(err)
+	}
+	if err := gb.LoadROM(rom); err != nil {
 		panic(err)
 	}
 

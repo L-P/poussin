@@ -21,8 +21,12 @@ func (g *Gameboy) LoadRom(rom []byte) {
 	fmt.Printf("ROM Loaded: %d bytes\n", len(g.ROM))
 }
 
-func (g *Gameboy) Boot(rom []byte) error {
+func (g *Gameboy) LoadBootROM(rom []byte) error {
 	return g.CPU.MMU.LoadBootROM(rom)
+}
+
+func (g *Gameboy) LoadROM(rom []byte) error {
+	return g.CPU.MMU.LoadROM(rom)
 }
 
 func (g *Gameboy) Run() error {

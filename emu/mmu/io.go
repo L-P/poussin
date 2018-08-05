@@ -20,6 +20,8 @@ func (m *MMU) ReadIO(addr uint16) byte {
 
 func (m *MMU) SetIO(addr uint16, value byte) {
 	switch addr {
+	case IODisableBootROM:
+		m.Mem[addr] = 1 // Boot ROM can never be re-enabled
 	case IODIV:
 		fallthrough
 	case IOLY:
