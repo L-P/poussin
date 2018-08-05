@@ -33,120 +33,113 @@ var Instructions = map[byte]Instruction{
 func i_nop(*CPU, byte, byte) {}
 
 // Increment register C
-func i_inc_c(cpu *CPU, _, _ byte) {
-	C := cpu.GetC()
+func i_inc_c(c *CPU, _, _ byte) {
+	C := c.GetC()
 
-	cpu.FlagHalfCarry = (((C & 0xF) + 1) & 0x10) > 0
+	c.FlagHalfCarry = (((C & 0xF) + 1) & 0x10) > 0
 
 	C++
-	cpu.SetC(C)
-	cpu.FlagZero = C == 0
-	cpu.FlagSubstract = false
+	c.SetC(C)
+	c.FlagZero = C == 0
+	c.FlagSubstract = false
 }
 
 // Load A into 0xFF00 + C
-func i_ld_pc_a(cpu *CPU, _, _ byte) {
-	cpu.MMU.Set8b(0xFF00|uint16(cpu.GetC()), cpu.A)
+func i_ld_pc_a(c *CPU, _, _ byte) {
+	c.MMU.Set8b(0xFF00|uint16(c.GetC()), c.A)
 }
 
 // Load 8b value into C
-func i_ld_c(cpu *CPU, l, _ byte) {
-	cpu.SetC(l)
+func i_ld_c(c *CPU, l, _ byte) {
+	c.SetC(l)
 }
 
 // Load 8b value into B
-func i_ld_b(cpu *CPU, l, _ byte) {
-	cpu.SetB(l)
+func i_ld_b(c *CPU, l, _ byte) {
+	c.SetB(l)
 }
 
 // Load 8b value into A
-func i_ld_a(cpu *CPU, l, _ byte) {
-	cpu.A = l
+func i_ld_a(c *CPU, l, _ byte) {
+	c.A = l
 }
 
 // Load 16b value into stack pointer
-func i_ld_sp(cpu *CPU, l, h byte) {
-	cpu.SP = (uint16(h) << 8) | uint16(l)
+func i_ld_sp(c *CPU, l, h byte) {
+	c.SP = (uint16(h) << 8) | uint16(l)
 }
 
 // Load 16b value into HL register
-func i_ld_hl(cpu *CPU, l, h byte) {
-	cpu.HL = (uint16(h) << 8) | uint16(l)
+func i_ld_hl(c *CPU, l, h byte) {
+	c.HL = (uint16(h) << 8) | uint16(l)
 }
 
 // Load 16b value into DE register
-func i_ld_de(cpu *CPU, l, h byte) {
-	cpu.DE = (uint16(h) << 8) | uint16(l)
+func i_ld_de(c *CPU, l, h byte) {
+	c.DE = (uint16(h) << 8) | uint16(l)
 }
 
 // Put A into address pointed by HL and decrement HL
-func i_ldd_phl_a(cpu *CPU, l, _ byte) {
-	cpu.MMU.Set8b(cpu.HL, cpu.A)
-	cpu.HL--
+func i_ldd_phl_a(c *CPU, l, _ byte) {
+	c.MMU.Set8b(c.HL, c.A)
+	c.HL--
 }
 
 // Put A into address pointed by HL
-func i_ld_phl_a(cpu *CPU, l, _ byte) {
-	cpu.MMU.Set8b(cpu.HL, cpu.A)
+func i_ld_phl_a(c *CPU, l, _ byte) {
+	c.MMU.Set8b(c.HL, c.A)
 }
 
 // Put A into address 0xFF00+l
-func i_ldh_pn_a(cpu *CPU, l, _ byte) {
-	cpu.MMU.Set8b(0xFF00+uint16(l), cpu.A)
+func i_ldh_pn_a(c *CPU, l, _ byte) {
+	c.MMU.Set8b(0xFF00+uint16(l), c.A)
 }
 
 // XOR A against itself, effectively clearing it and all flags
-func i_xor_a(cpu *CPU, _, _ byte) {
-	cpu.ClearFlags()
+func i_xor_a(c *CPU, _, _ byte) {
+	c.ClearFlags()
 }
 
 // Tells our virtual CPU the next instruction is from the CB block
-func i_prefix_cb(cpu *CPU, _, _ byte) {
-	cpu.NextOpcodeIsCB = true
+func i_prefix_cb(c *CPU, _, _ byte) {
+	c.NextOpcodeIsCB = true
 }
 
 // Pushes the address of the next instruction onto the stack and jump
-func i_call(cpu *CPU, l, h byte) {
-	cpu.StackPush16b(cpu.PC)
-	cpu.PC = (uint16(h) << 8) | uint16(l)
+func i_call(c *CPU, l, h byte) {
+	c.StackPush16b(c.PC)
+	c.PC = (uint16(h) << 8) | uint16(l)
 }
 
 // Pushes BC to the stack
-func i_push_bc(cpu *CPU, l, h byte) {
-	cpu.StackPush16b(cpu.BC)
+func i_push_bc(c *CPU, l, h byte) {
+	c.StackPush16b(c.BC)
 }
 
 // Load the value at address pointed by DE in A
-func i_ld_a_pde(cpu *CPU, _, _ byte) {
-	cpu.A = cpu.MMU.Get8b(cpu.DE)
+func i_ld_a_pde(c *CPU, _, _ byte) {
+	c.A = c.MMU.Get8b(c.DE)
 }
 
 // Load the value of C into A
-func i_ld_c_a(cpu *CPU, _, _ byte) {
-	cpu.A = cpu.GetC()
+func i_ld_c_a(c *CPU, _, _ byte) {
+	c.A = c.GetC()
 }
 
 // Jump to signed addr offset if Z flag is not set
-func i_jr_nz(cpu *CPU, l, _ byte) {
-	if !cpu.FlagZero {
-		addr := int16(cpu.PC) + int16(int8(l))
-		cpu.PC = uint16(addr)
+func i_jr_nz(c *CPU, l, _ byte) {
+	if !c.FlagZero {
+		addr := int16(c.PC) + int16(int8(l))
+		c.PC = uint16(addr)
 	}
 }
 
-func i_rla(cpu *CPU, _, _ byte) {
-	oldCarry := uint8(0)
-	if cpu.FlagCarry {
-		oldCarry = uint8(1)
-	}
+func i_rla(c *CPU, _, _ byte) {
+	c.A, c.FlagCarry = rotateLeftWithCarry(c.A, c.FlagCarry)
 
-	cpu.FlagCarry = (cpu.A & (1 << 7)) > 0
-
-	cpu.A = (cpu.A << 1) | oldCarry
-
-	// GBCPUman says the flag depends on the final value, other sources says
+	// GBCPUman says the Z flag depends on the final value, other sources says
 	// RLA always clear the flags, no sure who to trust.
-	cpu.FlagZero = false
-	cpu.FlagSubstract = false
-	cpu.FlagHalfCarry = false
+	c.FlagZero = false
+	c.FlagSubstract = false
+	c.FlagHalfCarry = false
 }

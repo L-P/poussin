@@ -7,16 +7,8 @@ var CBInstructions = map[byte]Instruction{
 
 // Rotates C left through Carry flag
 func i_cb_rl_c(cpu *CPU, _, _ byte) {
-	C := uint8(cpu.BC & 0x00FF)
-
-	oldCarry := uint8(0)
-	if cpu.FlagCarry {
-		oldCarry = uint8(1)
-	}
-
-	cpu.FlagCarry = (C & (1 << 7)) > 0
-
-	C = (C << 1) | oldCarry
+	var C byte
+	C, cpu.FlagCarry = rotateLeftWithCarry(cpu.GetC(), cpu.FlagCarry)
 
 	cpu.SetC(C)
 	cpu.FlagZero = C == 0

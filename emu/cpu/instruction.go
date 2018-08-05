@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-type InstructionImplementation func(cpu *CPU, l byte, h byte)
+type InstructionImplementation func(*CPU, byte, byte)
 
 type Instruction struct {
 	Length byte

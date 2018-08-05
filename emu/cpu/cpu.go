@@ -34,31 +34,31 @@ func New() CPU {
 	}
 }
 
-func (cpu *CPU) Step() error {
-	opcode := cpu.MMU.Peek(cpu.PC)
-	ins, err := cpu.Decode(opcode)
+func (c *CPU) Step() error {
+	opcode := c.MMU.Peek(c.PC)
+	ins, err := c.Decode(opcode)
 	if err != nil {
 		return err
 	}
 
 	var l, h byte
 	if ins.Length > 1 {
-		l = cpu.MMU.Peek(cpu.PC + 1)
+		l = c.MMU.Peek(c.PC + 1)
 	}
 	if ins.Length > 2 {
-		h = cpu.MMU.Peek(cpu.PC + 2)
+		h = c.MMU.Peek(c.PC + 2)
 	}
 
-	defer func() { fmt.Printf("%-22s %s\n", ins.String(l, h), cpu.String()) }()
+	defer func() { fmt.Printf("%-22s %s\n", ins.String(l, h), c.String()) }()
 
-	return cpu.Execute(ins, l, h)
+	return c.Execute(ins, l, h)
 }
 
-func (cpu *CPU) Decode(opcode byte) (Instruction, error) {
+func (c *CPU) Decode(opcode byte) (Instruction, error) {
 	bank := Instructions
-	if cpu.NextOpcodeIsCB {
+	if c.NextOpcodeIsCB {
 		bank = CBInstructions
-		defer func() { cpu.NextOpcodeIsCB = false }()
+		defer func() { c.NextOpcodeIsCB = false }()
 	}
 
 	ins, ok := bank[opcode]
@@ -66,21 +66,21 @@ func (cpu *CPU) Decode(opcode byte) (Instruction, error) {
 		return Instruction{}, fmt.Errorf(
 			"opcode not found: 0x%02X (CB: %t)",
 			opcode,
-			cpu.NextOpcodeIsCB,
+			c.NextOpcodeIsCB,
 		)
 	}
 
 	return ins, nil
 }
 
-func (cpu *CPU) Execute(ins Instruction, l, h byte) error {
+func (c *CPU) Execute(ins Instruction, l, h byte) error {
 	if ins.Func == nil {
 		return fmt.Errorf("no function defined for %s", ins.Name)
 	}
 
-	cpu.Cycle += int(ins.Cycles)
-	cpu.PC += uint16(ins.Length)
-	ins.Func(cpu, l, h)
+	c.Cycle += int(ins.Cycles)
+	c.PC += uint16(ins.Length)
+	ins.Func(c, l, h)
 
 	return nil
 }
