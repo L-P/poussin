@@ -1,14 +1,16 @@
 package cpu
 
-import "fmt"
-
 // Reads a byte from mapped memory
 func (c *CPU) Fetch(addr uint16) byte {
 	switch AddrToMemType(addr) {
 	case ROM0:
 		return c.FetchROM0(addr)
+	case VRAM:
+		return c.PPU.Fetch(addr)
 	case IO:
 		return c.FetchIO(addr)
+	case IERegister:
+		return c.FetchIE()
 	default:
 		return c.Mem[addr]
 	}
@@ -16,11 +18,16 @@ func (c *CPU) Fetch(addr uint16) byte {
 
 // Writes a byte to mapped memory
 func (c *CPU) Write(addr uint16, b byte) {
-	if AddrToMemType(addr) == IERegister {
-		panic(fmt.Errorf("Set IERegister %02X\n", b))
+	switch AddrToMemType(addr) {
+	case IO:
+		c.WriteIO(addr, b)
+	case VRAM:
+		c.PPU.Write(addr, b)
+	case IERegister:
+		c.WriteIE(b)
+	default:
+		c.Mem[addr] = b // TODO remove default case
 	}
-
-	c.Mem[addr] = b
 }
 
 func (c *CPU) FetchROM0(addr uint16) byte {
@@ -37,7 +44,7 @@ type MemType int
 const (
 	ROM0       = MemType(iota) // Non-switchable ROM bank
 	ROMX                       // Switchable ROM bank
-	VRAM                       // Vido RAM, switchable (0-1) in GBC mode
+	VRAM                       // VRAM Vido RAM, switchable (0-1) in GBC mode
 	SRAM                       // External RAM in cartridge
 	WRAM0                      // Work ram
 	WRAMX                      // Work ram, switchable (1-7) in GBC mode
@@ -48,26 +55,6 @@ const (
 	HRAM                       // Internal CPU RAM
 	IERegister                 // Interrupt enable flags
 )
-
-// MemTypeName returns a MemType name as a string
-func MemTypeName(t MemType) string {
-	types := map[MemType]string{
-		ROM0:       "ROM0",
-		ROMX:       "ROMX",
-		VRAM:       "VRAM",
-		SRAM:       "SRAM",
-		WRAM0:      "WRAM0",
-		WRAMX:      "WRAMX",
-		Echo:       "Echo",
-		OAM:        "OAM",
-		Unused:     "Unused",
-		IO:         "IO",
-		HRAM:       "HRAM",
-		IERegister: "IERegister",
-	}
-
-	return types[t]
-}
 
 // AddrToMemType returns the MemType the given address belongs to
 func AddrToMemType(addr uint16) MemType {
@@ -95,30 +82,30 @@ func AddrToMemType(addr uint16) MemType {
 	panic("unreachable")
 }
 
-const (
-	IOP1             = 0xFF00 // P1 Joypad (R/W)
-	IODIV            = 0xFF04 // Divider Register (R/W*)
-	IOSCY            = 0xFF42 // BG Scroll Y (R/W)
-	IOSCX            = 0xFF43 // BG Scroll X (R/W)
-	IOLY             = 0xFF44 // LCDC Y-Coordinate
-	IODisableBootROM = 0xFF50
-)
-
-func (c *CPU) FetchIO(addr uint16) byte {
-	switch addr {
-	case IODisableBootROM:
-		return c.Mem[addr]
+// MemTypeName returns a MemType name as a string
+func MemTypeName(t MemType) string {
+	types := map[MemType]string{
+		ROM0:       "ROM0",
+		ROMX:       "ROMX",
+		VRAM:       "VRAM",
+		SRAM:       "SRAM",
+		WRAM0:      "WRAM0",
+		WRAMX:      "WRAMX",
+		Echo:       "Echo",
+		OAM:        "OAM",
+		Unused:     "Unused",
+		IO:         "IO",
+		HRAM:       "HRAM",
+		IERegister: "IERegister",
 	}
 
-	panic(fmt.Errorf("unhandled I/O read at %02X", addr))
+	return types[t]
 }
 
-func (c *CPU) SetIO(addr uint16, value byte) {
-	switch addr {
-	case IODisableBootROM:
-		c.Mem[addr] = 1 // Boot ROM can never be re-enabled
-		return
-	}
+func (c *CPU) WriteIE(value byte) {
+	c.InterruptEnable = value
+}
 
-	panic(fmt.Errorf("unhandled I/O read at %02X", addr))
+func (c *CPU) FetchIE() byte {
+	return c.InterruptEnable
 }

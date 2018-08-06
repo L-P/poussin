@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"home.leo-peltier.fr/poussin/emu/ppu"
 	"home.leo-peltier.fr/poussin/emu/rom"
 )
 
@@ -11,6 +12,14 @@ type CPU struct {
 	Mem  [0xFFFF]byte
 	Boot [256]byte
 	ROM  [1024 * 1024 * 8]byte // Per Wikipedia, a GB ROM is 8 MiB max
+
+	// Adressable at 0xFFFF
+	InterruptEnable byte
+
+	// Interrupt Master Flag, not addressable
+	InterruptMaster bool
+
+	PPU *ppu.PPU
 
 	// Switching to CB opcode (0xCB for code bank?) is an instruction in
 	// itself, when this flag is set it means the next opcode we read will be
@@ -32,7 +41,9 @@ type CPU struct {
 }
 
 func New() CPU {
-	return CPU{}
+	return CPU{
+		PPU: ppu.New(),
+	}
 }
 
 func (c *CPU) Step() error {
@@ -40,6 +51,10 @@ func (c *CPU) Step() error {
 	ins, err := c.Decode(opcode)
 	if err != nil {
 		return err
+	}
+
+	for i := byte(0); i < ins.Cycles; i++ {
+		c.PPU.Cycle()
 	}
 
 	var l, h byte

@@ -3,8 +3,8 @@ package cpu
 var Instructions = map[byte]Instruction{
 	0x00: {1, 4, "NOP", i_nop},
 
-	0xF3: {1, 4, "DI", i_nop}, // TODO
-	0xFB: {1, 4, "EI", i_nop}, // TODO
+	0xF3: {1, 4, "DI", i_set_interrupt(false)},
+	0xFB: {1, 4, "EI", i_set_interrupt(true)},
 
 	0x3C: {1, 4, "INC A", i_inc_a},
 	0x04: {1, 4, "INC B", i_inc_n('B')},
@@ -247,6 +247,7 @@ func i_ldh_a_pn(c *CPU, l, _ byte) {
 
 // XOR A against itself, effectively clearing it and all flags
 func i_xor_a(c *CPU, _, _ byte) {
+	c.A = 0
 	c.ClearFlags()
 }
 
@@ -352,4 +353,10 @@ func i_rla(c *CPU, _, _ byte) {
 // Jumps to given address
 func i_jp_nn(c *CPU, l, h byte) {
 	c.PC = uint16(l) | (uint16(h) << 8)
+}
+
+func i_set_interrupt(v bool) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		c.InterruptMaster = v
+	}
 }
