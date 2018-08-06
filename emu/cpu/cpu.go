@@ -13,6 +13,11 @@ type CPU struct {
 	Boot [256]byte
 	ROM  [1024 * 1024 * 8]byte // Per Wikipedia, a GB ROM is 8 MiB max
 
+	// For debugging purposes
+	PreviousInstruction Instruction
+	PreviousLowArg      byte
+	PreviousHighArg     byte
+
 	// Adressable at 0xFFFF
 	InterruptEnable byte
 
@@ -27,6 +32,9 @@ type CPU struct {
 	NextOpcodeIsCB bool
 	Cycle          int
 
+	// Number of OP decoded and executed (debug)
+	OPCount int
+
 	// Registers
 	A             uint8  // Accumulator
 	FlagZero      bool   // True if last result was 0
@@ -40,9 +48,9 @@ type CPU struct {
 	PC            uint16 // Program counter
 }
 
-func New() CPU {
+func New(nextFrame chan<- int) CPU {
 	return CPU{
-		PPU: ppu.New(),
+		PPU: ppu.New(nextFrame),
 	}
 }
 
@@ -50,6 +58,11 @@ func (c *CPU) Step() error {
 	opcode := c.Fetch(c.PC)
 	ins, err := c.Decode(opcode)
 	if err != nil {
+		fmt.Printf(
+			"%-22s %s\n",
+			c.PreviousInstruction.String(c.PreviousLowArg, c.PreviousHighArg),
+			c.String(),
+		)
 		return err
 	}
 
@@ -65,9 +78,15 @@ func (c *CPU) Step() error {
 		h = c.Fetch(c.PC + 2)
 	}
 
-	if opcode != 0xCB { // don't clutter with PREFIX CB
-		defer func() { fmt.Printf("%-22s %s\n", ins.String(l, h), c.String()) }()
-	}
+	c.PreviousInstruction = ins
+	c.PreviousLowArg = l
+	c.PreviousHighArg = h
+
+	/*
+		if opcode != 0xCB { // don't clutter with PREFIX CB
+			defer func() { fmt.Printf("%-22s %s\n", ins.String(l, h), c.String()) }()
+		}
+		// */
 
 	return c.Execute(ins, l, h)
 }
@@ -98,6 +117,7 @@ func (c *CPU) Execute(ins Instruction, l, h byte) error {
 
 	c.Cycle += int(ins.Cycles)
 	c.PC += uint16(ins.Length)
+	c.OPCount++
 	ins.Func(c, l, h)
 
 	return nil

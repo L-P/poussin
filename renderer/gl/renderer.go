@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"runtime"
+	"time"
 
 	"github.com/go-gl/gl/v4.3-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
@@ -36,7 +37,18 @@ func Run(fb *image.RGBA, nextFrame <-chan int, quit chan<- int) {
 	vao, _ := getPlane(program)
 	texture := createTexture(fb)
 
+	lastFPSTime := time.Now()
+	framesSinceLastFPS := int64(0)
+
 	for !window.ShouldClose() {
+		delta := time.Now().Sub(lastFPSTime)
+		if delta >= time.Duration(1*time.Second) {
+			fmt.Printf("FPS:  %d\n", framesSinceLastFPS)
+
+			lastFPSTime = time.Now()
+			framesSinceLastFPS = 0
+		}
+
 		width, height := window.GetSize()
 		gl.Viewport(0, 0, int32(width), int32(height))
 
@@ -45,6 +57,7 @@ func Run(fb *image.RGBA, nextFrame <-chan int, quit chan<- int) {
 
 		select {
 		case <-nextFrame:
+			framesSinceLastFPS++
 			updateTexture(texture, fb)
 		default:
 		}

@@ -47,6 +47,7 @@ var Instructions = map[byte]Instruction{
 	0x2E: {2, 8, "LD L,$%02X", i_ld_n('L')},
 
 	0x1A: {1, 8, "LD A,(DE)", i_ld_a_pde},
+	0x2A: {1, 8, "LDI A,(HL)", i_ldi_a_phl},
 
 	0x7F: {1, 4, "LD A,A", i_ld_n_n('A', 'A')},
 	0x78: {1, 4, "LD A,B", i_ld_n_n('A', 'B')},
@@ -60,13 +61,16 @@ var Instructions = map[byte]Instruction{
 	0x57: {1, 4, "LD D,A", i_ld_n_n('D', 'A')},
 	0x67: {1, 4, "LD H,A", i_ld_n_n('H', 'A')},
 
-	0x11: {3, 12, "LD DE,$%02X%02X", i_ld_de},
-	0x21: {3, 12, "LD HL,$%02X%02X", i_ld_hl},
-	0x31: {3, 12, "LD SP,$%02X%02X", i_ld_sp},
+	0x01: {3, 12, "LD BC,$%02X%02X", i_ld_nn("DE")},
+	0x11: {3, 12, "LD DE,$%02X%02X", i_ld_nn("DE")},
+	0x21: {3, 12, "LD HL,$%02X%02X", i_ld_nn("HL")},
+	0x31: {3, 12, "LD SP,$%02X%02X", i_ld_nn("SP")},
 
 	0xE2: {1, 8, "LD (C),A", i_ld_pc_a},
 	0xEA: {3, 16, "LD ($%02X%02X),A", i_ld_pn_a},
+
 	0x77: {1, 8, "LD (HL),A", i_ld_phl_a},
+	0x36: {2, 12, "LD (HL),%02X", i_ld_phl_n},
 
 	0x22: {1, 8, "LDI (HL),A", i_ldi_phl_a},
 	0x32: {1, 8, "LDD (HL),A", i_ldd_phl_a},
@@ -198,19 +202,12 @@ func i_ld_a(c *CPU, l, _ byte) {
 	c.A = l
 }
 
-// Loads 16b value into stack pointer
-func i_ld_sp(c *CPU, l, h byte) {
-	c.SP = (uint16(h) << 8) | uint16(l)
-}
-
-// Loads 16b value into HL register
-func i_ld_hl(c *CPU, l, h byte) {
-	c.HL = (uint16(h) << 8) | uint16(l)
-}
-
-// Loads 16b value into DE register
-func i_ld_de(c *CPU, l, h byte) {
-	c.DE = (uint16(h) << 8) | uint16(l)
+// Loads 16b value into register
+func i_ld_nn(name string) InstructionImplementation {
+	return func(c *CPU, l, h byte) {
+		r := c.GetRegisterAddress(name)
+		*r = (uint16(h) << 8) | uint16(l)
+	}
 }
 
 // Puts A into address pointed by HL and decrement HL
@@ -228,6 +225,11 @@ func i_ldi_phl_a(c *CPU, _, _ byte) {
 // Puts A into address pointed by HL
 func i_ld_phl_a(c *CPU, _, _ byte) {
 	c.Write(c.HL, c.A)
+}
+
+// Puts n into address pointed by HL
+func i_ld_phl_n(c *CPU, l, _ byte) {
+	c.Write(c.HL, l)
 }
 
 // Puts A into given address pointed by HL
@@ -280,6 +282,12 @@ func i_pop_bc(c *CPU, l, h byte) {
 // Loads the value at address pointed by DE in A
 func i_ld_a_pde(c *CPU, _, _ byte) {
 	c.A = c.Fetch(c.DE)
+}
+
+// Loads the value at address pointed by HL in A and increment HL
+func i_ldi_a_phl(c *CPU, _, _ byte) {
+	c.A = c.Fetch(c.HL)
+	c.HL++
 }
 
 // Loads the value of register n into n

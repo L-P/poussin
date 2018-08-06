@@ -5,7 +5,11 @@ import "fmt"
 type PPU struct {
 	VRAM [8192]byte
 
+	// CPU Cycles since last full display
 	Cycles int
+
+	// We'll send to this when we're ready to display a frame
+	NextFrame chan<- int
 
 	// Registers mapped to FF40-FF4B
 	LCDC byte
@@ -22,9 +26,10 @@ type PPU struct {
 	WX   byte
 }
 
-func New() *PPU {
+func New(nextFrame chan<- int) *PPU {
 	return &PPU{
-		STAT: 1 << 7, // Bit is always set
+		NextFrame: nextFrame,
+		STAT:      1 << 7, // Bit is always set
 	}
 }
 
@@ -52,6 +57,13 @@ func (p *PPU) Cycle() {
 
 		if p.Cycles >= 4 {
 			if p.Cycles == 4 {
+				// Send frame to renderer
+				// HACK: This call is blocking, thus ensuring we don't run the emulation
+				// crazy fast, this only works if the receiver runs at 60hz of course
+				// ie. my monitor and graphics card run at 60hz with vsync enabled so
+				// this line is the actual simulation speed regulator
+				p.NextFrame <- 1
+
 				p.SetSTATLYC(p.LY == p.LYC)
 			}
 

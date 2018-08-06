@@ -86,6 +86,8 @@ func (c *CPU) GetRegisterAddress(name string) *uint16 {
 		return &c.DE
 	case "HL":
 		return &c.HL
+	case "SP":
+		return &c.SP
 	}
 
 	panic("unreachable")
