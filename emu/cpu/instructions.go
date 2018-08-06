@@ -182,7 +182,7 @@ func i_dec_a(c *CPU, _, _ byte) {
 
 // Loads A into 0xFF00 + C
 func i_ld_pc_a(c *CPU, _, _ byte) {
-	c.MMU.Set8b(0xFF00|uint16(c.GetC()), c.A)
+	c.Write(0xFF00|uint16(c.GetC()), c.A)
 }
 
 // Loads 8b value into n
@@ -215,34 +215,34 @@ func i_ld_de(c *CPU, l, h byte) {
 
 // Puts A into address pointed by HL and decrement HL
 func i_ldd_phl_a(c *CPU, _, _ byte) {
-	c.MMU.Set8b(c.HL, c.A)
+	c.Write(c.HL, c.A)
 	c.HL--
 }
 
 // Puts A into address pointed by HL and increment HL
 func i_ldi_phl_a(c *CPU, _, _ byte) {
-	c.MMU.Set8b(c.HL, c.A)
+	c.Write(c.HL, c.A)
 	c.HL++
 }
 
 // Puts A into address pointed by HL
 func i_ld_phl_a(c *CPU, _, _ byte) {
-	c.MMU.Set8b(c.HL, c.A)
+	c.Write(c.HL, c.A)
 }
 
 // Puts A into given address pointed by HL
 func i_ld_pn_a(c *CPU, l, h byte) {
-	c.MMU.Set8b(uint16(l)|(uint16(h)<<8), c.A)
+	c.Write(uint16(l)|(uint16(h)<<8), c.A)
 }
 
 // Puts A into address 0xFF00+l
 func i_ldh_pn_a(c *CPU, l, _ byte) {
-	c.MMU.Set8b(0xFF00+uint16(l), c.A)
+	c.Write(0xFF00+uint16(l), c.A)
 }
 
 // Puts value at 0xFF00+l into A
 func i_ldh_a_pn(c *CPU, l, _ byte) {
-	c.A = c.MMU.Get8b(0xFF00 + uint16(l))
+	c.A = c.Fetch(0xFF00 + uint16(l))
 }
 
 // XOR A against itself, effectively clearing it and all flags
@@ -278,7 +278,7 @@ func i_pop_bc(c *CPU, l, h byte) {
 
 // Loads the value at address pointed by DE in A
 func i_ld_a_pde(c *CPU, _, _ byte) {
-	c.A = c.MMU.Get8b(c.DE)
+	c.A = c.Fetch(c.DE)
 }
 
 // Loads the value of register n into n
@@ -320,7 +320,7 @@ func i_cp_n(c *CPU, l, _ byte) {
 // Adds the value at *HL to A
 func i_add_a_phl(c *CPU, _, _ byte) {
 	old := c.A
-	add := c.MMU.Get8b(c.HL)
+	add := c.Fetch(c.HL)
 
 	c.A += add
 	c.FlagZero = c.A == 0
@@ -331,7 +331,7 @@ func i_add_a_phl(c *CPU, _, _ byte) {
 
 // Compare A with the value at *HL
 func i_cp_phl(c *CPU, _, _ byte) {
-	v := c.MMU.Get8b(c.HL)
+	v := c.Fetch(c.HL)
 	c.FlagZero = c.A-v == 0
 	c.FlagSubstract = true
 	c.FlagHalfCarry = (c.A & 0xF) < (v & 0xF)

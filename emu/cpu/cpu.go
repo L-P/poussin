@@ -1,41 +1,42 @@
 package cpu
 
 import (
+	"errors"
 	"fmt"
 
-	"home.leo-peltier.fr/poussin/emu/mmu"
+	"home.leo-peltier.fr/poussin/emu/rom"
 )
 
 type CPU struct {
-	MMU mmu.MMU
+	Mem  [0xFFFF]byte
+	Boot [256]byte
+	ROM  [1024 * 1024 * 8]byte // Per Wikipedia, a GB ROM is 8 MiB max
 
 	// Switching to CB opcode (0xCB for code bank?) is an instruction in
 	// itself, when this flag is set it means the next opcode we read will be
-	// from the CB opcodes and will need to be reset
+	// from the CB opcodes
 	NextOpcodeIsCB bool
 	Cycle          int
 
 	// Registers
-	A             uint8 // Accumulator
-	FlagZero      bool
-	FlagSubstract bool
-	FlagHalfCarry bool
-	FlagCarry     bool
-	BC            uint16
-	DE            uint16
-	HL            uint16
+	A             uint8  // Accumulator
+	FlagZero      bool   // True if last result was 0
+	FlagSubstract bool   // True if last operation was a substraction / decrement
+	FlagHalfCarry bool   // True if the last operation had a half-carry
+	FlagCarry     bool   // True if the last operation had a carry
+	BC            uint16 // General-purpose register
+	DE            uint16 // General-purpose register
+	HL            uint16 // General-purpose register that doubles as a faster memory pointer
 	SP            uint16 // Stack pointer
 	PC            uint16 // Program counter
 }
 
 func New() CPU {
-	return CPU{
-		MMU: mmu.New(),
-	}
+	return CPU{}
 }
 
 func (c *CPU) Step() error {
-	opcode := c.MMU.Get8b(c.PC)
+	opcode := c.Fetch(c.PC)
 	ins, err := c.Decode(opcode)
 	if err != nil {
 		return err
@@ -43,10 +44,10 @@ func (c *CPU) Step() error {
 
 	var l, h byte
 	if ins.Length > 1 {
-		l = c.MMU.Get8b(c.PC + 1)
+		l = c.Fetch(c.PC + 1)
 	}
 	if ins.Length > 2 {
-		h = c.MMU.Get8b(c.PC + 2)
+		h = c.Fetch(c.PC + 2)
 	}
 
 	if opcode != 0xCB { // don't clutter with PREFIX CB
@@ -83,6 +84,27 @@ func (c *CPU) Execute(ins Instruction, l, h byte) error {
 	c.Cycle += int(ins.Cycles)
 	c.PC += uint16(ins.Length)
 	ins.Func(c, l, h)
+
+	return nil
+}
+
+func (c *CPU) LoadBootROM(data []byte) error {
+	if count := copy(c.Boot[:], data); count != 256 {
+		return fmt.Errorf("did not copy 256 bytes: %d", count)
+	}
+
+	return nil
+}
+
+func (c *CPU) LoadROM(data []byte) error {
+	copy(c.ROM[:], data)
+
+	h := rom.NewHeader(data)
+	fmt.Printf("ROM loaded: %s\n", h.String())
+
+	if h.CGBOnly {
+		return errors.New("only DMG games are supported")
+	}
 
 	return nil
 }

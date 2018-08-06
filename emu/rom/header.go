@@ -1,8 +1,8 @@
-package mmu
+package rom
 
 import "fmt"
 
-type ROMHeader struct {
+type Header struct {
 	Title         string
 	DMG           bool // original DMG game before CGB/SGB was a thing
 	CGBOnly       bool
@@ -57,8 +57,8 @@ var CartridgeTypes = map[byte]string{
 	0xFF: "HuC1+RAM+BATTERY",
 }
 
-func NewROMHeader(rom []byte) ROMHeader {
-	h := ROMHeader{}
+func NewHeader(rom []byte) Header {
+	h := Header{}
 
 	for i := HeaderOldTitleStart; i < HeaderOldTitleEnd; i++ {
 		if rom[i] == 0 {
@@ -82,7 +82,7 @@ func NewROMHeader(rom []byte) ROMHeader {
 	return h
 }
 
-func (h *ROMHeader) String() string {
+func (h *Header) String() string {
 	str := `"` + h.Title + `"`
 
 	if h.DMG {

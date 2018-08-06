@@ -12,7 +12,7 @@ func (c *CPU) StackPush16b(data ...uint16) {
 func (c *CPU) StackPush8b(data ...byte) {
 	for _, v := range data {
 		c.SP--
-		c.MMU.Set8b(c.SP, v)
+		c.Write(c.SP, v)
 	}
 }
 
@@ -22,5 +22,5 @@ func (c *CPU) StackPop16b() uint16 {
 
 func (c *CPU) StackPop8b() byte {
 	c.SP++
-	return c.MMU.Get8b(c.SP - 1)
+	return c.Fetch(c.SP - 1)
 }

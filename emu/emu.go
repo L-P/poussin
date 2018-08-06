@@ -22,11 +22,11 @@ func (g *Gameboy) LoadRom(rom []byte) {
 }
 
 func (g *Gameboy) LoadBootROM(rom []byte) error {
-	return g.CPU.MMU.LoadBootROM(rom)
+	return g.CPU.LoadBootROM(rom)
 }
 
 func (g *Gameboy) LoadROM(rom []byte) error {
-	return g.CPU.MMU.LoadROM(rom)
+	return g.CPU.LoadROM(rom)
 }
 
 func (g *Gameboy) Run() error {
