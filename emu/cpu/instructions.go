@@ -14,9 +14,6 @@ var Instructions = map[byte]Instruction{
 	0x24: {1, 4, "INC H", i_inc_n('H')},
 	0x2C: {1, 4, "INC L", i_inc_n('L')},
 
-	0x13: {1, 8, "INC DE", i_inc_de},
-	0x23: {1, 8, "INC HL", i_inc_hl},
-
 	0x3D: {1, 4, "DEC A", i_dec_a},
 	0x05: {1, 4, "DEC B", i_dec_n('B')},
 	0x0D: {1, 4, "DEC C", i_dec_n('C')},
@@ -24,6 +21,16 @@ var Instructions = map[byte]Instruction{
 	0x1D: {1, 4, "DEC E", i_dec_n('E')},
 	0x25: {1, 4, "DEC H", i_dec_n('H')},
 	0x2D: {1, 4, "DEC L", i_dec_n('L')},
+
+	0x03: {1, 8, "INC BC", i_inc_nn("BC")},
+	0x13: {1, 8, "INC DE", i_inc_nn("DE")},
+	0x23: {1, 8, "INC HL", i_inc_nn("HL")},
+	0x33: {1, 8, "INC SP", i_inc_nn("SP")},
+
+	0x0B: {1, 8, "DEC BC", i_dec_nn("BC")},
+	0x1B: {1, 8, "DEC DE", i_dec_nn("DE")},
+	0x2B: {1, 8, "DEC HL", i_dec_nn("HL")},
+	0x3B: {1, 8, "DEC SP", i_dec_nn("SP")},
 
 	0x86: {1, 8, "ADD A,(HL)", i_add_a_phl},
 
@@ -35,7 +42,30 @@ var Instructions = map[byte]Instruction{
 	0x94: {1, 4, "SUB H", i_sub_n('H')},
 	0x95: {1, 4, "SUB L", i_sub_n('L')},
 
-	0xAF: {1, 4, "XOR A", i_xor_a},
+	0xA8: {1, 4, "XOR B", i_xor_n('B')},
+	0xA9: {1, 4, "XOR C", i_xor_n('C')},
+	0xAA: {1, 4, "XOR D", i_xor_n('D')},
+	0xAB: {1, 4, "XOR E", i_xor_n('E')},
+	0xAC: {1, 4, "XOR H", i_xor_n('H')},
+	0xAD: {1, 4, "XOR L", i_xor_n('L')},
+	0xAF: {1, 4, "XOR A", i_xor_n('A')},
+
+	0xA0: {1, 4, "AND B", i_and_n('B')},
+	0xA1: {1, 4, "AND C", i_and_n('C')},
+	0xA2: {1, 4, "AND D", i_and_n('D')},
+	0xA3: {1, 4, "AND E", i_and_n('E')},
+	0xA4: {1, 4, "AND H", i_and_n('H')},
+	0xA5: {1, 4, "AND L", i_and_n('L')},
+	0xA7: {1, 4, "AND A", i_and_n('A')},
+
+	0xB0: {1, 4, "OR B", i_or_n('B')},
+	0xB1: {1, 4, "OR C", i_or_n('C')},
+	0xB2: {1, 4, "OR D", i_or_n('D')},
+	0xB3: {1, 4, "OR E", i_or_n('E')},
+	0xB4: {1, 4, "OR H", i_or_n('H')},
+	0xB5: {1, 4, "OR L", i_or_n('L')},
+	0xB7: {1, 4, "OR A", i_or_n('A')},
+
 	0x17: {1, 4, "RLA", i_rla},
 
 	0x3E: {2, 8, "LD A,$%02X", i_ld_a},
@@ -49,17 +79,61 @@ var Instructions = map[byte]Instruction{
 	0x1A: {1, 8, "LD A,(DE)", i_ld_a_pde},
 	0x2A: {1, 8, "LDI A,(HL)", i_ldi_a_phl},
 
-	0x7F: {1, 4, "LD A,A", i_ld_n_n('A', 'A')},
+	0x40: {1, 4, "LD B,B", i_ld_n_n('B', 'B')},
+	0x41: {1, 4, "LD B,C", i_ld_n_n('B', 'C')},
+	0x42: {1, 4, "LD B,D", i_ld_n_n('B', 'D')},
+	0x43: {1, 4, "LD B,E", i_ld_n_n('B', 'E')},
+	0x44: {1, 4, "LD B,H", i_ld_n_n('B', 'H')},
+	0x45: {1, 4, "LD B,L", i_ld_n_n('B', 'L')},
+	0x47: {1, 4, "LD B,A", i_ld_n_n('B', 'A')},
+
+	0x48: {1, 4, "LD C,B", i_ld_n_n('C', 'B')},
+	0x49: {1, 4, "LD C,C", i_ld_n_n('C', 'C')},
+	0x4A: {1, 4, "LD C,D", i_ld_n_n('C', 'D')},
+	0x4B: {1, 4, "LD C,E", i_ld_n_n('C', 'E')},
+	0x4C: {1, 4, "LD C,H", i_ld_n_n('C', 'H')},
+	0x4D: {1, 4, "LD C,L", i_ld_n_n('C', 'L')},
+	0x4F: {1, 4, "LD C,A", i_ld_n_n('C', 'A')},
+
+	0x50: {1, 4, "LD D,B", i_ld_n_n('D', 'B')},
+	0x51: {1, 4, "LD D,C", i_ld_n_n('D', 'C')},
+	0x52: {1, 4, "LD D,D", i_ld_n_n('D', 'D')},
+	0x53: {1, 4, "LD D,E", i_ld_n_n('D', 'E')},
+	0x54: {1, 4, "LD D,H", i_ld_n_n('D', 'H')},
+	0x55: {1, 4, "LD D,L", i_ld_n_n('D', 'L')},
+	0x57: {1, 4, "LD D,A", i_ld_n_n('D', 'A')},
+
+	0x58: {1, 4, "LD E,B", i_ld_n_n('E', 'B')},
+	0x59: {1, 4, "LD E,C", i_ld_n_n('E', 'C')},
+	0x5A: {1, 4, "LD E,D", i_ld_n_n('E', 'D')},
+	0x5B: {1, 4, "LD E,E", i_ld_n_n('E', 'E')},
+	0x5C: {1, 4, "LD E,H", i_ld_n_n('E', 'H')},
+	0x5D: {1, 4, "LD E,L", i_ld_n_n('E', 'L')},
+	0x5F: {1, 4, "LD E,A", i_ld_n_n('E', 'A')},
+
+	0x60: {1, 4, "LD H,B", i_ld_n_n('H', 'B')},
+	0x61: {1, 4, "LD H,C", i_ld_n_n('H', 'C')},
+	0x62: {1, 4, "LD H,D", i_ld_n_n('H', 'D')},
+	0x63: {1, 4, "LD H,E", i_ld_n_n('H', 'E')},
+	0x64: {1, 4, "LD H,H", i_ld_n_n('H', 'H')},
+	0x65: {1, 4, "LD H,L", i_ld_n_n('H', 'L')},
+	0x67: {1, 4, "LD H,A", i_ld_n_n('H', 'A')},
+
+	0x68: {1, 4, "LD L,B", i_ld_n_n('L', 'B')},
+	0x69: {1, 4, "LD L,C", i_ld_n_n('L', 'C')},
+	0x6A: {1, 4, "LD L,D", i_ld_n_n('L', 'D')},
+	0x6B: {1, 4, "LD L,E", i_ld_n_n('L', 'E')},
+	0x6C: {1, 4, "LD L,H", i_ld_n_n('L', 'H')},
+	0x6D: {1, 4, "LD L,L", i_ld_n_n('L', 'L')},
+	0x6F: {1, 4, "LD L,A", i_ld_n_n('L', 'A')},
+
 	0x78: {1, 4, "LD A,B", i_ld_n_n('A', 'B')},
 	0x79: {1, 4, "LD A,C", i_ld_n_n('A', 'C')},
 	0x7A: {1, 4, "LD A,D", i_ld_n_n('A', 'D')},
 	0x7B: {1, 4, "LD A,E", i_ld_n_n('A', 'E')},
 	0x7C: {1, 4, "LD A,H", i_ld_n_n('A', 'H')},
 	0x7D: {1, 4, "LD A,L", i_ld_n_n('A', 'L')},
-
-	0x4F: {1, 4, "LD C,A", i_ld_n_n('C', 'A')},
-	0x57: {1, 4, "LD D,A", i_ld_n_n('D', 'A')},
-	0x67: {1, 4, "LD H,A", i_ld_n_n('H', 'A')},
+	0x7F: {1, 4, "LD A,A", i_ld_n_n('A', 'A')},
 
 	0x01: {3, 12, "LD BC,$%02X%02X", i_ld_nn("DE")},
 	0x11: {3, 12, "LD DE,$%02X%02X", i_ld_nn("DE")},
@@ -132,14 +206,20 @@ func i_inc_c(c *CPU, _, _ byte) {
 	c.FlagSubstract = false
 }
 
-// Increments register DE
-func i_inc_de(c *CPU, _, _ byte) {
-	c.DE++
+// Increments register nn
+func i_inc_nn(name string) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		r := c.GetRegisterAddress(name)
+		*r++
+	}
 }
 
-// Increments register HL
-func i_inc_hl(c *CPU, _, _ byte) {
-	c.HL++
+// Decrements register nn
+func i_dec_nn(name string) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		r := c.GetRegisterAddress(name)
+		*r--
+	}
 }
 
 // Decrements register n
@@ -247,10 +327,38 @@ func i_ldh_a_pn(c *CPU, l, _ byte) {
 	c.A = c.Fetch(0xFF00 + uint16(l))
 }
 
-// XOR A against itself, effectively clearing it and all flags
-func i_xor_a(c *CPU, _, _ byte) {
-	c.A = 0
-	c.ClearFlags()
+// Performs a logical AND against A and n
+func i_and_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, _ := c.GetRegisterCallbacks(name)
+
+		c.A &= get()
+		c.ClearFlags()
+		c.FlagZero = c.A == 0
+		c.FlagHalfCarry = true
+	}
+}
+
+// Performs a logical XOR against A xor n
+func i_xor_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, _ := c.GetRegisterCallbacks(name)
+
+		c.A ^= get()
+		c.ClearFlags()
+		c.FlagZero = c.A == 0
+	}
+}
+
+// Performs a logical OR against A and n
+func i_or_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, _ := c.GetRegisterCallbacks(name)
+
+		c.A |= get()
+		c.ClearFlags()
+		c.FlagZero = c.A == 0
+	}
 }
 
 // Tells our virtual CPU the next instruction is from the CB block
