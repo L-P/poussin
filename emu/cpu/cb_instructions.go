@@ -17,7 +17,6 @@ var CBInstructions = map[byte]Instruction{
 	0x4C: {1, 4, "BIT 1,H", i_cb_bit_x_n(1, 'H')},
 	0x4D: {1, 4, "BIT 1,L", i_cb_bit_x_n(1, 'L')},
 	0x4F: {1, 4, "BIT 1,A", i_cb_bit_x_n(1, 'A')},
-
 	0x50: {1, 4, "BIT 2,B", i_cb_bit_x_n(2, 'B')},
 	0x51: {1, 4, "BIT 2,C", i_cb_bit_x_n(2, 'C')},
 	0x52: {1, 4, "BIT 2,D", i_cb_bit_x_n(2, 'D')},
@@ -32,7 +31,6 @@ var CBInstructions = map[byte]Instruction{
 	0x5C: {1, 4, "BIT 3,H", i_cb_bit_x_n(3, 'H')},
 	0x5D: {1, 4, "BIT 3,L", i_cb_bit_x_n(3, 'L')},
 	0x5F: {1, 4, "BIT 3,A", i_cb_bit_x_n(3, 'A')},
-
 	0x60: {1, 4, "BIT 4,B", i_cb_bit_x_n(4, 'B')},
 	0x61: {1, 4, "BIT 4,C", i_cb_bit_x_n(4, 'C')},
 	0x62: {1, 4, "BIT 4,D", i_cb_bit_x_n(4, 'D')},
@@ -47,7 +45,6 @@ var CBInstructions = map[byte]Instruction{
 	0x6C: {1, 4, "BIT 5,H", i_cb_bit_x_n(5, 'H')},
 	0x6D: {1, 4, "BIT 5,L", i_cb_bit_x_n(5, 'L')},
 	0x6F: {1, 4, "BIT 5,A", i_cb_bit_x_n(5, 'A')},
-
 	0x70: {1, 4, "BIT 6,B", i_cb_bit_x_n(6, 'B')},
 	0x71: {1, 4, "BIT 6,C", i_cb_bit_x_n(6, 'C')},
 	0x72: {1, 4, "BIT 6,D", i_cb_bit_x_n(6, 'D')},
@@ -62,6 +59,120 @@ var CBInstructions = map[byte]Instruction{
 	0x7C: {1, 4, "BIT 7,H", i_cb_bit_x_n(7, 'H')},
 	0x7D: {1, 4, "BIT 7,L", i_cb_bit_x_n(7, 'L')},
 	0x7F: {1, 4, "BIT 7,A", i_cb_bit_x_n(7, 'A')},
+
+	0x80: {1, 4, "RES 0,B", i_cb_res_x_n(0, 'B')},
+	0x81: {1, 4, "RES 0,C", i_cb_res_x_n(0, 'C')},
+	0x82: {1, 4, "RES 0,D", i_cb_res_x_n(0, 'D')},
+	0x83: {1, 4, "RES 0,E", i_cb_res_x_n(0, 'E')},
+	0x84: {1, 4, "RES 0,H", i_cb_res_x_n(0, 'H')},
+	0x85: {1, 4, "RES 0,L", i_cb_res_x_n(0, 'L')},
+	0x87: {1, 4, "RES 0,A", i_cb_res_x_n(0, 'A')},
+	0x88: {1, 4, "RES 1,B", i_cb_res_x_n(1, 'B')},
+	0x89: {1, 4, "RES 1,C", i_cb_res_x_n(1, 'C')},
+	0x8A: {1, 4, "RES 1,D", i_cb_res_x_n(1, 'D')},
+	0x8B: {1, 4, "RES 1,E", i_cb_res_x_n(1, 'E')},
+	0x8C: {1, 4, "RES 1,H", i_cb_res_x_n(1, 'H')},
+	0x8D: {1, 4, "RES 1,L", i_cb_res_x_n(1, 'L')},
+	0x8F: {1, 4, "RES 1,A", i_cb_res_x_n(1, 'A')},
+	0x90: {1, 4, "RES 2,B", i_cb_res_x_n(2, 'B')},
+	0x91: {1, 4, "RES 2,C", i_cb_res_x_n(2, 'C')},
+	0x92: {1, 4, "RES 2,D", i_cb_res_x_n(2, 'D')},
+	0x93: {1, 4, "RES 2,E", i_cb_res_x_n(2, 'E')},
+	0x94: {1, 4, "RES 2,H", i_cb_res_x_n(2, 'H')},
+	0x95: {1, 4, "RES 2,L", i_cb_res_x_n(2, 'L')},
+	0x97: {1, 4, "RES 2,A", i_cb_res_x_n(2, 'A')},
+	0x98: {1, 4, "RES 3,B", i_cb_res_x_n(3, 'B')},
+	0x99: {1, 4, "RES 3,C", i_cb_res_x_n(3, 'C')},
+	0x9A: {1, 4, "RES 3,D", i_cb_res_x_n(3, 'D')},
+	0x9B: {1, 4, "RES 3,E", i_cb_res_x_n(3, 'E')},
+	0x9C: {1, 4, "RES 3,H", i_cb_res_x_n(3, 'H')},
+	0x9D: {1, 4, "RES 3,L", i_cb_res_x_n(3, 'L')},
+	0x9F: {1, 4, "RES 3,A", i_cb_res_x_n(3, 'A')},
+	0xA0: {1, 4, "RES 4,B", i_cb_res_x_n(4, 'B')},
+	0xA1: {1, 4, "RES 4,C", i_cb_res_x_n(4, 'C')},
+	0xA2: {1, 4, "RES 4,D", i_cb_res_x_n(4, 'D')},
+	0xA3: {1, 4, "RES 4,E", i_cb_res_x_n(4, 'E')},
+	0xA4: {1, 4, "RES 4,H", i_cb_res_x_n(4, 'H')},
+	0xA5: {1, 4, "RES 4,L", i_cb_res_x_n(4, 'L')},
+	0xA7: {1, 4, "RES 4,A", i_cb_res_x_n(4, 'A')},
+	0xA8: {1, 4, "RES 5,B", i_cb_res_x_n(5, 'B')},
+	0xA9: {1, 4, "RES 5,C", i_cb_res_x_n(5, 'C')},
+	0xAA: {1, 4, "RES 5,D", i_cb_res_x_n(5, 'D')},
+	0xAB: {1, 4, "RES 5,E", i_cb_res_x_n(5, 'E')},
+	0xAC: {1, 4, "RES 5,H", i_cb_res_x_n(5, 'H')},
+	0xAD: {1, 4, "RES 5,L", i_cb_res_x_n(5, 'L')},
+	0xAF: {1, 4, "RES 5,A", i_cb_res_x_n(5, 'A')},
+	0xB0: {1, 4, "RES 6,B", i_cb_res_x_n(6, 'B')},
+	0xB1: {1, 4, "RES 6,C", i_cb_res_x_n(6, 'C')},
+	0xB2: {1, 4, "RES 6,D", i_cb_res_x_n(6, 'D')},
+	0xB3: {1, 4, "RES 6,E", i_cb_res_x_n(6, 'E')},
+	0xB4: {1, 4, "RES 6,H", i_cb_res_x_n(6, 'H')},
+	0xB5: {1, 4, "RES 6,L", i_cb_res_x_n(6, 'L')},
+	0xB7: {1, 4, "RES 6,A", i_cb_res_x_n(6, 'A')},
+	0xB8: {1, 4, "RES 7,B", i_cb_res_x_n(7, 'B')},
+	0xB9: {1, 4, "RES 7,C", i_cb_res_x_n(7, 'C')},
+	0xBA: {1, 4, "RES 7,D", i_cb_res_x_n(7, 'D')},
+	0xBB: {1, 4, "RES 7,E", i_cb_res_x_n(7, 'E')},
+	0xBC: {1, 4, "RES 7,H", i_cb_res_x_n(7, 'H')},
+	0xBD: {1, 4, "RES 7,L", i_cb_res_x_n(7, 'L')},
+	0xBF: {1, 4, "RES 7,A", i_cb_res_x_n(7, 'A')},
+
+	0xC0: {1, 4, "SET 0,B", i_cb_set_x_n(0, 'B')},
+	0xC1: {1, 4, "SET 0,C", i_cb_set_x_n(0, 'C')},
+	0xC2: {1, 4, "SET 0,D", i_cb_set_x_n(0, 'D')},
+	0xC3: {1, 4, "SET 0,E", i_cb_set_x_n(0, 'E')},
+	0xC4: {1, 4, "SET 0,H", i_cb_set_x_n(0, 'H')},
+	0xC5: {1, 4, "SET 0,L", i_cb_set_x_n(0, 'L')},
+	0xC7: {1, 4, "SET 0,A", i_cb_set_x_n(0, 'A')},
+	0xC8: {1, 4, "SET 1,B", i_cb_set_x_n(1, 'B')},
+	0xC9: {1, 4, "SET 1,C", i_cb_set_x_n(1, 'C')},
+	0xCA: {1, 4, "SET 1,D", i_cb_set_x_n(1, 'D')},
+	0xCB: {1, 4, "SET 1,E", i_cb_set_x_n(1, 'E')},
+	0xCC: {1, 4, "SET 1,H", i_cb_set_x_n(1, 'H')},
+	0xCD: {1, 4, "SET 1,L", i_cb_set_x_n(1, 'L')},
+	0xCF: {1, 4, "SET 1,A", i_cb_set_x_n(1, 'A')},
+	0xD0: {1, 4, "SET 2,B", i_cb_set_x_n(2, 'B')},
+	0xD1: {1, 4, "SET 2,C", i_cb_set_x_n(2, 'C')},
+	0xD2: {1, 4, "SET 2,D", i_cb_set_x_n(2, 'D')},
+	0xD3: {1, 4, "SET 2,E", i_cb_set_x_n(2, 'E')},
+	0xD4: {1, 4, "SET 2,H", i_cb_set_x_n(2, 'H')},
+	0xD5: {1, 4, "SET 2,L", i_cb_set_x_n(2, 'L')},
+	0xD7: {1, 4, "SET 2,A", i_cb_set_x_n(2, 'A')},
+	0xD8: {1, 4, "SET 3,B", i_cb_set_x_n(3, 'B')},
+	0xD9: {1, 4, "SET 3,C", i_cb_set_x_n(3, 'C')},
+	0xDA: {1, 4, "SET 3,D", i_cb_set_x_n(3, 'D')},
+	0xDB: {1, 4, "SET 3,E", i_cb_set_x_n(3, 'E')},
+	0xDC: {1, 4, "SET 3,H", i_cb_set_x_n(3, 'H')},
+	0xDD: {1, 4, "SET 3,L", i_cb_set_x_n(3, 'L')},
+	0xDF: {1, 4, "SET 3,A", i_cb_set_x_n(3, 'A')},
+	0xE0: {1, 4, "SET 4,B", i_cb_set_x_n(4, 'B')},
+	0xE1: {1, 4, "SET 4,C", i_cb_set_x_n(4, 'C')},
+	0xE2: {1, 4, "SET 4,D", i_cb_set_x_n(4, 'D')},
+	0xE3: {1, 4, "SET 4,E", i_cb_set_x_n(4, 'E')},
+	0xE4: {1, 4, "SET 4,H", i_cb_set_x_n(4, 'H')},
+	0xE5: {1, 4, "SET 4,L", i_cb_set_x_n(4, 'L')},
+	0xE7: {1, 4, "SET 4,A", i_cb_set_x_n(4, 'A')},
+	0xE8: {1, 4, "SET 5,B", i_cb_set_x_n(5, 'B')},
+	0xE9: {1, 4, "SET 5,C", i_cb_set_x_n(5, 'C')},
+	0xEA: {1, 4, "SET 5,D", i_cb_set_x_n(5, 'D')},
+	0xEB: {1, 4, "SET 5,E", i_cb_set_x_n(5, 'E')},
+	0xEC: {1, 4, "SET 5,H", i_cb_set_x_n(5, 'H')},
+	0xED: {1, 4, "SET 5,L", i_cb_set_x_n(5, 'L')},
+	0xEF: {1, 4, "SET 5,A", i_cb_set_x_n(5, 'A')},
+	0xF0: {1, 4, "SET 6,B", i_cb_set_x_n(6, 'B')},
+	0xF1: {1, 4, "SET 6,C", i_cb_set_x_n(6, 'C')},
+	0xF2: {1, 4, "SET 6,D", i_cb_set_x_n(6, 'D')},
+	0xF3: {1, 4, "SET 6,E", i_cb_set_x_n(6, 'E')},
+	0xF4: {1, 4, "SET 6,H", i_cb_set_x_n(6, 'H')},
+	0xF5: {1, 4, "SET 6,L", i_cb_set_x_n(6, 'L')},
+	0xF7: {1, 4, "SET 6,A", i_cb_set_x_n(6, 'A')},
+	0xF8: {1, 4, "SET 7,B", i_cb_set_x_n(7, 'B')},
+	0xF9: {1, 4, "SET 7,C", i_cb_set_x_n(7, 'C')},
+	0xFA: {1, 4, "SET 7,D", i_cb_set_x_n(7, 'D')},
+	0xFB: {1, 4, "SET 7,E", i_cb_set_x_n(7, 'E')},
+	0xFC: {1, 4, "SET 7,H", i_cb_set_x_n(7, 'H')},
+	0xFD: {1, 4, "SET 7,L", i_cb_set_x_n(7, 'L')},
+	0xFF: {1, 4, "SET 7,A", i_cb_set_x_n(7, 'A')},
 
 	0x30: {1, 4, "SWAP B", i_cb_swap_n('B')},
 	0x31: {1, 4, "SWAP C", i_cb_swap_n('C')},
@@ -93,6 +204,23 @@ func i_cb_bit_x_n(bit uint, name byte) InstructionImplementation {
 	}
 }
 
+// Resets bit x of n
+func i_cb_res_x_n(bit uint, name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, set := c.GetRegisterCallbacks(name)
+		set(get() &^ (1 << bit))
+	}
+}
+
+// Sets bit x of n
+func i_cb_set_x_n(bit uint, name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, set := c.GetRegisterCallbacks(name)
+		set(get() | (1 << bit))
+	}
+}
+
+// Swaps high and low nibble of a register
 func i_cb_swap_n(name byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
 		get, set := c.GetRegisterCallbacks(name)

@@ -44,6 +44,11 @@ var Instructions = map[byte]Instruction{
 
 	0x86: {1, 8, "ADD A,(HL)", i_add_a_phl},
 
+	0x09: {1, 8, "ADD HL,BC", i_add_hl_nn("BC")},
+	0x19: {1, 8, "ADD HL,DE", i_add_hl_nn("DE")},
+	0x29: {1, 8, "ADD HL,HL", i_add_hl_nn("HL")},
+	0x39: {1, 8, "ADD HL,SP", i_add_hl_nn("SP")},
+
 	0x97: {1, 4, "SUB A", i_sub_n('A')},
 	0x90: {1, 4, "SUB B", i_sub_n('B')},
 	0x91: {1, 4, "SUB C", i_sub_n('C')},
@@ -90,7 +95,16 @@ var Instructions = map[byte]Instruction{
 	0x26: {2, 8, "LD H,$%02X", i_ld_n('H')},
 	0x2E: {2, 8, "LD L,$%02X", i_ld_n('L')},
 
-	0x1A: {1, 8, "LD A,(DE)", i_ld_a_pde},
+	0x0A: {1, 8, "LD A,(BC)", i_ld_n_pnn('A', "BC")},
+	0x1A: {1, 8, "LD A,(DE)", i_ld_n_pnn('A', "DE")},
+	0x7E: {1, 8, "LD A,(HL)", i_ld_n_pnn('A', "HL")},
+	0x46: {1, 8, "LD B,(HL)", i_ld_n_pnn('B', "HL")},
+	0x4E: {1, 8, "LD C,(HL)", i_ld_n_pnn('C', "HL")},
+	0x56: {1, 8, "LD D,(HL)", i_ld_n_pnn('D', "HL")},
+	0x5E: {1, 8, "LD E,(HL)", i_ld_n_pnn('E', "HL")},
+	0x66: {1, 8, "LD H,(HL)", i_ld_n_pnn('H', "HL")},
+	0x6E: {1, 8, "LD L,(HL)", i_ld_n_pnn('L', "HL")},
+
 	0x2A: {1, 8, "LDI A,(HL)", i_ldi_a_phl},
 
 	0x40: {1, 4, "LD B,B", i_ld_n_n('B', 'B')},
@@ -182,6 +196,7 @@ var Instructions = map[byte]Instruction{
 	0xE1: {1, 12, "POP HL", i_pop_nn("HL")},
 
 	0xC3: {3, 12, "JP $%02X%02X", i_jp_nn},
+	0xE9: {1, 4, "JP (HL)", i_jp_hl}, // weird mnemonic, we go to HL, not (HL)
 	0xCB: {1, 4, "PREFIX CB", i_prefix_cb},
 	0xCD: {3, 24, "CALL $%02X%02X", i_call},
 	0xC9: {1, 8, "RET", i_ret},
@@ -444,9 +459,14 @@ func i_pop_nn(name string) InstructionImplementation {
 	}
 }
 
-// Loads the value at address pointed by DE in A
-func i_ld_a_pde(c *CPU, _, _ byte) {
-	c.A = c.Fetch(c.DE)
+// Loads the value at address pointed by nn in n
+func i_ld_n_pnn(dst byte, src string) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		_, set := c.GetRegisterCallbacks(dst)
+		r := c.GetRegisterAddress(src)
+
+		set(c.Fetch(*r))
+	}
 }
 
 // Loads the value at address pointed by HL in A and increment HL
@@ -544,6 +564,11 @@ func i_jp_nn(c *CPU, l, h byte) {
 	c.PC = uint16(l) | (uint16(h) << 8)
 }
 
+// Jumps to the address HL
+func i_jp_hl(c *CPU, _, _ byte) {
+	c.PC = c.HL
+}
+
 func i_set_interrupt(v bool) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
 		c.InterruptMaster = v
@@ -562,5 +587,19 @@ func i_rst(l byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
 		c.StackPush16b(c.PC)
 		c.PC = uint16(l)
+	}
+}
+
+// Adds the value of register nn to HL
+func i_add_hl_nn(name string) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		r := c.GetRegisterAddress(name)
+		old := c.HL
+
+		c.HL += *r
+
+		c.FlagSubstract = false
+		c.FlagCarry = c.HL < old
+		// TODO c.HalfCarry
 	}
 }
