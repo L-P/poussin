@@ -34,6 +34,14 @@ var Instructions = map[byte]Instruction{
 	0x2B: {1, 8, "DEC HL", i_dec_nn("HL")},
 	0x3B: {1, 8, "DEC SP", i_dec_nn("SP")},
 
+	0x80: {1, 4, "ADD A,B", i_add_a_n('B')},
+	0x81: {1, 4, "ADD A,C", i_add_a_n('C')},
+	0x82: {1, 4, "ADD A,D", i_add_a_n('D')},
+	0x83: {1, 4, "ADD A,E", i_add_a_n('E')},
+	0x84: {1, 4, "ADD A,H", i_add_a_n('H')},
+	0x85: {1, 4, "ADD A,L", i_add_a_n('L')},
+	0x87: {1, 4, "ADD A,A", i_add_a_n('A')},
+
 	0x86: {1, 8, "ADD A,(HL)", i_add_a_phl},
 
 	0x97: {1, 4, "SUB A", i_sub_n('A')},
@@ -171,8 +179,17 @@ var Instructions = map[byte]Instruction{
 
 	0xC3: {3, 12, "JP $%02X%02X", i_jp_nn},
 	0xCB: {1, 4, "PREFIX CB", i_prefix_cb},
-	0xCD: {3, 12, "CALL $%02X%02X", i_call},
+	0xCD: {3, 24, "CALL $%02X%02X", i_call},
 	0xC9: {1, 8, "RET", i_ret},
+
+	0xC7: {1, 16, "RST,$00", i_rst(0x00)},
+	0xCF: {1, 16, "RST,$08", i_rst(0x08)},
+	0xD7: {1, 16, "RST,$10", i_rst(0x10)},
+	0xDF: {1, 16, "RST,$18", i_rst(0x18)},
+	0xE7: {1, 16, "RST,$20", i_rst(0x20)},
+	0xEF: {1, 16, "RST,$28", i_rst(0x28)},
+	0xF7: {1, 16, "RST,$30", i_rst(0x30)},
+	0xFF: {1, 16, "RST,$38", i_rst(0x38)},
 }
 
 func i_nop(*CPU, byte, byte) {}
@@ -448,6 +465,22 @@ func i_cp_n(c *CPU, l, _ byte) {
 	c.FlagCarry = c.A < l
 }
 
+// Adds the value n to A
+func i_add_a_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, _ := c.GetRegisterCallbacks(name)
+
+		old := c.A
+		add := get()
+
+		c.A += add
+		c.FlagZero = c.A == 0
+		c.FlagSubstract = false
+		c.FlagHalfCarry = (((old & 0xF) + (add & 0xF)) & 0x10) > 0
+		c.FlagCarry = c.A < old
+	}
+}
+
 // Adds the value at *HL to A
 func i_add_a_phl(c *CPU, _, _ byte) {
 	old := c.A
@@ -496,4 +529,12 @@ func i_cpl(c *CPU, _, _ byte) {
 	c.A = c.A ^ 0xFF
 	c.FlagHalfCarry = true
 	c.FlagSubstract = true
+}
+
+// Pushes PC onto the stack and jump to 0x0000 + l
+func i_rst(l byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		c.StackPush16b(c.PC)
+		c.PC = uint16(l)
+	}
 }
