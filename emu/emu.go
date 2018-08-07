@@ -2,6 +2,7 @@ package emu
 
 import (
 	"fmt"
+	"image"
 	"time"
 
 	"home.leo-peltier.fr/poussin/emu/cpu"
@@ -11,7 +12,7 @@ type Gameboy struct {
 	CPU cpu.CPU
 }
 
-func NewGameboy(nextFrame chan<- int) *Gameboy {
+func NewGameboy(nextFrame chan<- *image.RGBA) *Gameboy {
 	return &Gameboy{
 		CPU: cpu.New(nextFrame),
 	}

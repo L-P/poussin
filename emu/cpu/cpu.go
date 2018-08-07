@@ -3,6 +3,7 @@ package cpu
 import (
 	"errors"
 	"fmt"
+	"image"
 
 	"home.leo-peltier.fr/poussin/emu/ppu"
 	"home.leo-peltier.fr/poussin/emu/rom"
@@ -48,7 +49,7 @@ type CPU struct {
 	PC            uint16 // Program counter
 }
 
-func New(nextFrame chan<- int) CPU {
+func New(nextFrame chan<- *image.RGBA) CPU {
 	return CPU{
 		PPU: ppu.New(nextFrame),
 	}

@@ -9,9 +9,10 @@ import (
 	"github.com/go-gl/gl/v4.3-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/go-gl/mathgl/mgl32"
+	"home.leo-peltier.fr/poussin/emu/ppu"
 )
 
-func Run(fb *image.RGBA, nextFrame <-chan int, quit chan<- int) {
+func Run(nextFrame <-chan *image.RGBA, quit chan<- int) {
 	runtime.LockOSThread()
 
 	if err := glfw.Init(); err != nil {
@@ -35,7 +36,7 @@ func Run(fb *image.RGBA, nextFrame <-chan int, quit chan<- int) {
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
 	vao, _ := getPlane(program)
-	texture := createTexture(fb)
+	texture := createTexture(ppu.DotMatrixWidth, ppu.DotMatrixHeight)
 
 	lastFPSTime := time.Now()
 	framesSinceLastFPS := int64(0)
@@ -56,7 +57,7 @@ func Run(fb *image.RGBA, nextFrame <-chan int, quit chan<- int) {
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
 		select {
-		case <-nextFrame:
+		case fb := <-nextFrame:
 			framesSinceLastFPS++
 			updateTexture(texture, fb)
 		default:
@@ -117,7 +118,7 @@ func getPlane(program uint32) (vao, vbo uint32) {
 	return vao, vbo
 }
 
-func createTexture(rgba *image.RGBA) uint32 {
+func createTexture(width, height int32) uint32 {
 	var texture uint32
 	gl.GenTextures(1, &texture)
 	gl.ActiveTexture(gl.TEXTURE0)
@@ -130,12 +131,12 @@ func createTexture(rgba *image.RGBA) uint32 {
 		gl.TEXTURE_2D,
 		0,
 		gl.RGBA,
-		int32(rgba.Rect.Size().X),
-		int32(rgba.Rect.Size().Y),
+		width,
+		height,
 		0,
 		gl.RGBA,
 		gl.UNSIGNED_BYTE,
-		gl.Ptr(rgba.Pix),
+		gl.Ptr(nil),
 	)
 
 	return texture

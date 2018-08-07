@@ -1,6 +1,14 @@
 package ppu
 
-import "fmt"
+import (
+	"fmt"
+	"image"
+)
+
+const (
+	DotMatrixWidth  = 160
+	DotMatrixHeight = 144
+)
 
 type PPU struct {
 	VRAM [8192]byte
@@ -8,8 +16,11 @@ type PPU struct {
 	// CPU Cycles since last full display
 	Cycles int
 
+	Buffers         [2]*image.RGBA
+	BackBufferIndex int
+
 	// We'll send to this when we're ready to display a frame
-	NextFrame chan<- int
+	NextFrame chan<- *image.RGBA
 
 	// Registers mapped to FF40-FF4B
 	LCDC byte
@@ -26,11 +37,17 @@ type PPU struct {
 	WX   byte
 }
 
-func New(nextFrame chan<- int) *PPU {
-	return &PPU{
+func New(nextFrame chan<- *image.RGBA) *PPU {
+	p := PPU{
 		NextFrame: nextFrame,
-		STAT:      1 << 7, // Bit is always set
+		Buffers: [2]*image.RGBA{
+			image.NewRGBA(image.Rect(0, 0, DotMatrixWidth, DotMatrixHeight)),
+			image.NewRGBA(image.Rect(0, 0, DotMatrixWidth, DotMatrixHeight)),
+		},
+		STAT: 1 << 7, // Bit is always set
 	}
+
+	return &p
 }
 
 // Runs the PPU for one cycle
@@ -57,12 +74,7 @@ func (p *PPU) Cycle() {
 
 		if p.Cycles >= 4 {
 			if p.Cycles == 4 {
-				// Send frame to renderer
-				// HACK: This call is blocking, thus ensuring we don't run the emulation
-				// crazy fast, this only works if the receiver runs at 60hz of course
-				// ie. my monitor and graphics card run at 60hz with vsync enabled so
-				// this line is the actual simulation speed regulator
-				p.NextFrame <- 1
+				p.SendFrame()
 
 				p.SetSTATLYC(p.LY == p.LYC)
 			}
@@ -214,4 +226,20 @@ func (p *PPU) WriteRegister(addr uint16, b byte) {
 	case 0xFF4B:
 		p.WX = b
 	}
+}
+
+// SendFrame sends a frame to the renderer
+func (p *PPU) SendFrame() {
+	// HACK: This call is blocking, thus ensuring we don't run the emulation
+	// crazy fast, this only works if the receiver runs at 60hz of course
+	// ie. my monitor and graphics card run at 60hz with vsync enabled so
+	// this line is the actual simulation speed regulator
+
+	// Send the current back buffer and promote it to front
+	p.NextFrame <- p.Buffers[p.BackBufferIndex]
+	p.BackBufferIndex = (p.BackBufferIndex + 1) % 2
+}
+
+func (p *PPU) BackBuffer() *image.RGBA {
+	return p.Buffers[p.BackBufferIndex]
 }
