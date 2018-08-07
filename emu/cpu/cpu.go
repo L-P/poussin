@@ -83,11 +83,11 @@ func (c *CPU) Step() error {
 	c.PreviousLowArg = l
 	c.PreviousHighArg = h
 
-	// /*
-	if c.FetchIO(IODisableBootROM) != 0 && opcode != 0xCB { // don't clutter with PREFIX CB
-		defer func() { fmt.Printf("%-22s %s\n", ins.String(l, h), c.String()) }()
-	}
-	// */
+	/*
+		if {
+			defer func() { fmt.Printf("%-22s %s\n", ins.String(l, h), c.String()) }()
+		}
+		// */
 
 	return c.Execute(ins, l, h)
 }
