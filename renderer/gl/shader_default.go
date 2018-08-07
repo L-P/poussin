@@ -13,6 +13,7 @@ out vec2 aTexCoord;
 void main() {
     gl_Position = uProjection * vec4(inPos, 0.0, 1.0);
     aTexCoord = inTexCoord;
+	aTexCoord.y = 1 - aTexCoord.y;
 }
 `
 

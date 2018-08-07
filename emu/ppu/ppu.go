@@ -3,6 +3,7 @@ package ppu
 import (
 	"fmt"
 	"image"
+	"image/color"
 )
 
 const (
@@ -230,12 +231,27 @@ func (p *PPU) WriteRegister(addr uint16, b byte) {
 
 // SendFrame sends a frame to the renderer
 func (p *PPU) SendFrame() {
+	// HACK TODO: writing raw VRAM to FB so we have a debug output
+	fb := p.BackBuffer()
+	for i := 0; i < len(p.VRAM); i += 8 {
+		for j := byte(0); j < 8; j++ {
+			x := (i + int(j)) % DotMatrixWidth
+			y := (i + int(j)) / DotMatrixWidth
+
+			if (p.VRAM[i] & (1 << j)) > 0 {
+				fb.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
+			} else {
+				fb.SetRGBA(x, y, color.RGBA{0, 0, 0, 255})
+			}
+		}
+
+	}
+
+	// Send the current back buffer and promote it to front
 	// HACK: This call is blocking, thus ensuring we don't run the emulation
 	// crazy fast, this only works if the receiver runs at 60hz of course
 	// ie. my monitor and graphics card run at 60hz with vsync enabled so
 	// this line is the actual simulation speed regulator
-
-	// Send the current back buffer and promote it to front
 	p.NextFrame <- p.Buffers[p.BackBufferIndex]
 	p.BackBufferIndex = (p.BackBufferIndex + 1) % 2
 }
