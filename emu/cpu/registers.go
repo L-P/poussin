@@ -56,6 +56,26 @@ func (c *CPU) ClearFlags() {
 	c.FlagCarry = false
 }
 
+// Returns the flags as a byte (ie. the F register)
+func (c *CPU) GetFlags() byte {
+	f := byte(0x00)
+
+	if c.FlagZero {
+		f |= 1 << 7
+	}
+	if c.FlagSubstract {
+		f |= 1 << 6
+	}
+	if c.FlagHalfCarry {
+		f |= 1 << 5
+	}
+	if c.FlagCarry {
+		f |= 1 << 4
+	}
+
+	return f
+}
+
 // Returns the get/set function for a register given by name (eg. 'H')
 func (c *CPU) GetRegisterCallbacks(name byte) (get func() byte, set func(byte)) {
 	switch name {

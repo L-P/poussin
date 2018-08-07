@@ -87,7 +87,8 @@ var Instructions = map[byte]Instruction{
 
 	0x17: {1, 4, "RLA", i_rla},
 
-	0x3E: {2, 8, "LD A,$%02X", i_ld_a},
+	0x3E: {2, 8, "LD A,$%02X", i_ld_a_nn},
+	0xFA: {2, 16, "LD A,($%02X)", i_ld_a_pnn},
 	0x06: {2, 8, "LD B,$%02X", i_ld_n('B')},
 	0x0E: {2, 8, "LD C,$%02X", i_ld_n('C')},
 	0x16: {2, 8, "LD D,$%02X", i_ld_n('D')},
@@ -163,7 +164,7 @@ var Instructions = map[byte]Instruction{
 	0x7D: {1, 4, "LD A,L", i_ld_n_n('A', 'L')},
 	0x7F: {1, 4, "LD A,A", i_ld_n_n('A', 'A')},
 
-	0x01: {3, 12, "LD BC,$%02X%02X", i_ld_nn("DE")},
+	0x01: {3, 12, "LD BC,$%02X%02X", i_ld_nn("BC")},
 	0x11: {3, 12, "LD DE,$%02X%02X", i_ld_nn("DE")},
 	0x21: {3, 12, "LD HL,$%02X%02X", i_ld_nn("HL")},
 	0x31: {3, 12, "LD SP,$%02X%02X", i_ld_nn("SP")},
@@ -171,7 +172,10 @@ var Instructions = map[byte]Instruction{
 	0xE2: {1, 8, "LD (C),A", i_ld_pc_a},
 	0xEA: {3, 16, "LD ($%02X%02X),A", i_ld_pn_a},
 
-	0x77: {1, 8, "LD (HL),A", i_ld_phl_a},
+	0x02: {1, 8, "LD (BC),A", i_ld_pnn_a("BC")},
+	0x12: {1, 8, "LD (DE),A", i_ld_pnn_a("DE")},
+	0x77: {1, 8, "LD (HL),A", i_ld_pnn_a("HL")},
+
 	0x36: {2, 12, "LD (HL),%02X", i_ld_phl_n},
 
 	0x22: {1, 8, "LDI (HL),A", i_ldi_phl_a},
@@ -190,6 +194,7 @@ var Instructions = map[byte]Instruction{
 	0xC5: {1, 16, "PUSH BC", i_push_nn("BC")},
 	0xD5: {1, 16, "PUSH DE", i_push_nn("DE")},
 	0xE5: {1, 16, "PUSH HL", i_push_nn("HL")},
+	0xF5: {1, 16, "PUSH AF", i_push_af},
 
 	0xC1: {1, 12, "POP BC", i_pop_nn("BC")},
 	0xD1: {1, 12, "POP DE", i_pop_nn("DE")},
@@ -322,8 +327,13 @@ func i_ld_n(name byte) InstructionImplementation {
 }
 
 // Loads 8b value into A
-func i_ld_a(c *CPU, l, _ byte) {
+func i_ld_a_nn(c *CPU, l, _ byte) {
 	c.A = l
+}
+
+// Loads value at given address into A
+func i_ld_a_pnn(c *CPU, l, h byte) {
+	c.A = c.Fetch((uint16(h) << 8) | uint16(l))
 }
 
 // Loads 16b value into register
@@ -346,9 +356,12 @@ func i_ldi_phl_a(c *CPU, _, _ byte) {
 	c.HL++
 }
 
-// Puts A into address pointed by HL
-func i_ld_phl_a(c *CPU, _, _ byte) {
-	c.Write(c.HL, c.A)
+// Puts A into address pointed by nn
+func i_ld_pnn_a(name string) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		r := c.GetRegisterAddress(name)
+		c.Write(*r, c.A)
+	}
 }
 
 // Puts n into address pointed by HL
@@ -449,6 +462,10 @@ func i_push_nn(name string) InstructionImplementation {
 		r := c.GetRegisterAddress(name)
 		c.StackPush16b(*r)
 	}
+}
+
+func i_push_af(c *CPU, _, _ byte) {
+	c.StackPush16b((uint16(c.A) << 8) | uint16(c.GetFlags()))
 }
 
 // Pops two bytes from the stack to nn
