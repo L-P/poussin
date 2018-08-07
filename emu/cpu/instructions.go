@@ -88,7 +88,7 @@ var Instructions = map[byte]Instruction{
 	0x17: {1, 4, "RLA", i_rla},
 
 	0x3E: {2, 8, "LD A,$%02X", i_ld_a_nn},
-	0xFA: {2, 16, "LD A,($%02X)", i_ld_a_pnn},
+	0xFA: {3, 16, "LD A,($%02X%02X)", i_ld_a_pnn},
 	0x06: {2, 8, "LD B,$%02X", i_ld_n('B')},
 	0x0E: {2, 8, "LD C,$%02X", i_ld_n('C')},
 	0x16: {2, 8, "LD D,$%02X", i_ld_n('D')},
@@ -187,9 +187,12 @@ var Instructions = map[byte]Instruction{
 	0xBE: {1, 8, "CP (HL)", i_cp_phl},
 	0xFE: {2, 8, "CP $%02X", i_cp_n},
 
-	0x18: {2, 8, "JR,$%02X", i_jr},
+	0x18: {2, 8, "JR $%02X", i_jr},
 	0x20: {2, 8, "JR NZ,$%02X", i_jr_nz},
 	0x28: {2, 8, "JR Z,$%02X", i_jr_z},
+
+	0xC3: {3, 12, "JP $%02X%02X", i_jp_nn},
+	0xE9: {1, 4, "JP (HL)", i_jp_hl}, // weird mnemonic, we go to HL, not (HL)
 
 	0xC5: {1, 16, "PUSH BC", i_push_nn("BC")},
 	0xD5: {1, 16, "PUSH DE", i_push_nn("DE")},
@@ -200,8 +203,6 @@ var Instructions = map[byte]Instruction{
 	0xD1: {1, 12, "POP DE", i_pop_nn("DE")},
 	0xE1: {1, 12, "POP HL", i_pop_nn("HL")},
 
-	0xC3: {3, 12, "JP $%02X%02X", i_jp_nn},
-	0xE9: {1, 4, "JP (HL)", i_jp_hl}, // weird mnemonic, we go to HL, not (HL)
 	0xCB: {1, 4, "PREFIX CB", i_prefix_cb},
 	0xCD: {3, 24, "CALL $%02X%02X", i_call},
 	0xC9: {1, 8, "RET", i_ret},
