@@ -6,6 +6,8 @@ var Instructions = map[byte]Instruction{
 	0xF3: {1, 4, "DI", i_set_interrupt(false)},
 	0xFB: {1, 4, "EI", i_set_interrupt(true)},
 
+	0x2F: {1, 4, "CPL", i_cpl},
+
 	0x3C: {1, 4, "INC A", i_inc_a},
 	0x04: {1, 4, "INC B", i_inc_n('B')},
 	0x0C: {1, 4, "INC C", i_inc_n('C')},
@@ -159,9 +161,15 @@ var Instructions = map[byte]Instruction{
 	0x20: {2, 8, "JR NZ,$%02X", i_jr_nz},
 	0x28: {2, 8, "JR Z,$%02X", i_jr_z},
 
-	0xC1: {1, 12, "POP BC", i_pop_bc},
+	0xC5: {1, 16, "PUSH BC", i_push_nn("BC")},
+	0xD5: {1, 16, "PUSH DE", i_push_nn("DE")},
+	0xE5: {1, 16, "PUSH HL", i_push_nn("HL")},
+
+	0xC1: {1, 12, "POP BC", i_pop_nn("BC")},
+	0xD1: {1, 12, "POP DE", i_pop_nn("DE")},
+	0xE1: {1, 12, "POP HL", i_pop_nn("HL")},
+
 	0xC3: {3, 12, "JP $%02X%02X", i_jp_nn},
-	0xC5: {1, 16, "PUSH BC", i_push_bc},
 	0xCB: {1, 4, "PREFIX CB", i_prefix_cb},
 	0xCD: {3, 12, "CALL $%02X%02X", i_call},
 	0xC9: {1, 8, "RET", i_ret},
@@ -377,14 +385,20 @@ func i_ret(c *CPU, _, _ byte) {
 	c.PC = c.StackPop16b()
 }
 
-// Pushes BC to the stack
-func i_push_bc(c *CPU, l, h byte) {
-	c.StackPush16b(c.BC)
+// Pushes a two-byte register to the stack
+func i_push_nn(name string) InstructionImplementation {
+	return func(c *CPU, l, h byte) {
+		r := c.GetRegisterAddress(name)
+		c.StackPush16b(*r)
+	}
 }
 
-// Pops two bytes from the stack to BC
-func i_pop_bc(c *CPU, l, h byte) {
-	c.BC = c.StackPop16b()
+// Pops two bytes from the stack to nn
+func i_pop_nn(name string) InstructionImplementation {
+	return func(c *CPU, l, h byte) {
+		r := c.GetRegisterAddress(name)
+		*r = c.StackPop16b()
+	}
 }
 
 // Loads the value at address pointed by DE in A
@@ -475,4 +489,11 @@ func i_set_interrupt(v bool) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
 		c.InterruptMaster = v
 	}
+}
+
+// Flips all bits of A ("Complement")
+func i_cpl(c *CPU, _, _ byte) {
+	c.A = c.A ^ 0xFF
+	c.FlagHalfCarry = true
+	c.FlagSubstract = true
 }
