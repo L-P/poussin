@@ -5,6 +5,8 @@ func (c *CPU) Fetch(addr uint16) byte {
 	switch AddrToMemType(addr) {
 	case ROM0:
 		return c.FetchROM0(addr)
+	case ROMX:
+		return c.FetchROMX(addr)
 	case VRAM:
 		return c.PPU.Fetch(addr)
 	case IO:
@@ -36,6 +38,11 @@ func (c *CPU) FetchROM0(addr uint16) byte {
 		return c.Boot[addr]
 	}
 
+	return c.ROM[addr]
+}
+
+// TODO: bank switch
+func (c *CPU) FetchROMX(addr uint16) byte {
 	return c.ROM[addr]
 }
 
