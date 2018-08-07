@@ -76,6 +76,10 @@ var Instructions = map[byte]Instruction{
 	0xB5: {1, 4, "OR L", i_or_n('L')},
 	0xB7: {1, 4, "OR A", i_or_n('A')},
 
+	0xE6: {2, 8, "AND $%02X", i_and},
+	0xEE: {2, 8, "XOR $%02X", i_xor},
+	0xF6: {2, 8, "OR $%02X", i_or},
+
 	0x17: {1, 4, "RLA", i_rla},
 
 	0x3E: {2, 8, "LD A,$%02X", i_ld_a},
@@ -350,6 +354,28 @@ func i_ldh_pn_a(c *CPU, l, _ byte) {
 // Puts value at 0xFF00+l into A
 func i_ldh_a_pn(c *CPU, l, _ byte) {
 	c.A = c.Fetch(0xFF00 + uint16(l))
+}
+
+// Performs a logical AND against A and l
+func i_and(c *CPU, l, _ byte) {
+	c.A &= l
+	c.ClearFlags()
+	c.FlagZero = c.A == 0
+	c.FlagHalfCarry = true
+}
+
+// Performs a logical XOR against A and l
+func i_xor(c *CPU, l, _ byte) {
+	c.A ^= l
+	c.ClearFlags()
+	c.FlagZero = c.A == 0
+}
+
+// Performs a logical OR against A and l
+func i_or(c *CPU, l, _ byte) {
+	c.A |= l
+	c.ClearFlags()
+	c.FlagZero = c.A == 0
 }
 
 // Performs a logical AND against A and n
