@@ -188,11 +188,17 @@ var Instructions = map[byte]Instruction{
 	0xFE: {2, 8, "CP $%02X", i_cp_n},
 
 	0x18: {2, 8, "JR $%02X", i_jr},
-	0x20: {2, 8, "JR NZ,$%02X", i_jr_nz},
 	0x28: {2, 8, "JR Z,$%02X", i_jr_z},
+	0x20: {2, 8, "JR NZ,$%02X", i_jr_nz},
 
 	0xC3: {3, 12, "JP $%02X%02X", i_jp_nn},
+	0xCA: {3, 12, "JP Z,$%02X%02X", i_jp_z},
+	0xC2: {3, 12, "JP NZ,$%02X%02X", i_jp_nz},
 	0xE9: {1, 4, "JP (HL)", i_jp_hl}, // weird mnemonic, we go to HL, not (HL)
+
+	0xC9: {1, 8, "RET", i_ret},
+	0xC0: {1, 8, "RET Z", i_ret_z},
+	0xC8: {1, 8, "RET NZ", i_ret_nz},
 
 	0xC5: {1, 16, "PUSH BC", i_push_nn("BC")},
 	0xD5: {1, 16, "PUSH DE", i_push_nn("DE")},
@@ -205,7 +211,6 @@ var Instructions = map[byte]Instruction{
 
 	0xCB: {1, 4, "PREFIX CB", i_prefix_cb},
 	0xCD: {3, 24, "CALL $%02X%02X", i_call},
-	0xC9: {1, 8, "RET", i_ret},
 
 	0xC7: {1, 16, "RST,$00", i_rst(0x00)},
 	0xCF: {1, 16, "RST,$08", i_rst(0x08)},
@@ -457,6 +462,20 @@ func i_ret(c *CPU, _, _ byte) {
 	c.PC = c.StackPop16b()
 }
 
+// Pops a two bytes address stack and jump to it if Z is set
+func i_ret_z(c *CPU, _, _ byte) {
+	if c.FlagZero {
+		c.PC = c.StackPop16b()
+	}
+}
+
+// Pops a two bytes address stack and jump to it if Z is not set
+func i_ret_nz(c *CPU, _, _ byte) {
+	if !c.FlagZero {
+		c.PC = c.StackPop16b()
+	}
+}
+
 // Pushes a two-byte register to the stack
 func i_push_nn(name string) InstructionImplementation {
 	return func(c *CPU, l, h byte) {
@@ -521,6 +540,25 @@ func i_jr_z(c *CPU, l, _ byte) {
 	}
 }
 
+// Jumps to the given address
+func i_jp_nn(c *CPU, l, h byte) {
+	c.PC = uint16(l) | (uint16(h) << 8)
+}
+
+// Jumps to addr if Z flag is not set
+func i_jp_nz(c *CPU, l, h byte) {
+	if !c.FlagZero {
+		c.PC = uint16(l) | (uint16(h) << 8)
+	}
+}
+
+// Jumps to signed addr offset if Z is set
+func i_jp_z(c *CPU, l, h byte) {
+	if c.FlagZero {
+		c.PC = uint16(l) | (uint16(h) << 8)
+	}
+}
+
 // Compare A with the given value
 func i_cp_n(c *CPU, l, _ byte) {
 	c.FlagZero = c.A-l == 0
@@ -575,11 +613,6 @@ func i_rla(c *CPU, _, _ byte) {
 	c.FlagZero = false
 	c.FlagSubstract = false
 	c.FlagHalfCarry = false
-}
-
-// Jumps to given address
-func i_jp_nn(c *CPU, l, h byte) {
-	c.PC = uint16(l) | (uint16(h) << 8)
 }
 
 // Jumps to the address HL
