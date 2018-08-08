@@ -3,6 +3,14 @@ package cpu
 var CBInstructions = map[byte]Instruction{
 	0x11: {1, 4, "RL C", i_cb_rl_c},
 
+	0x27: {1, 4, "SLA A", i_cb_sla_n('A')},
+	0x20: {1, 4, "SLA B", i_cb_sla_n('B')},
+	0x21: {1, 4, "SLA C", i_cb_sla_n('C')},
+	0x22: {1, 4, "SLA D", i_cb_sla_n('D')},
+	0x23: {1, 4, "SLA E", i_cb_sla_n('E')},
+	0x24: {1, 4, "SLA H", i_cb_sla_n('H')},
+	0x25: {1, 4, "SLA L", i_cb_sla_n('L')},
+
 	0x40: {1, 4, "BIT 0,B", i_cb_bit_x_n(0, 'B')},
 	0x41: {1, 4, "BIT 0,C", i_cb_bit_x_n(0, 'C')},
 	0x42: {1, 4, "BIT 0,D", i_cb_bit_x_n(0, 'D')},
@@ -231,5 +239,20 @@ func i_cb_swap_n(name byte) InstructionImplementation {
 
 		c.ClearFlags()
 		c.FlagZero = b == 0
+	}
+}
+
+// Shifts n into carry
+func i_cb_sla_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, set := c.GetRegisterCallbacks(name)
+
+		w := uint16(get()) << 1
+		b := byte(w)
+		set(b)
+
+		c.ClearFlags()
+		c.FlagZero = b == 0
+		c.FlagCarry = (w & (1 << 8)) > 0
 	}
 }

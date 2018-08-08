@@ -33,6 +33,7 @@ var Instructions = map[byte]Instruction{
 	0x1B: {1, 8, "DEC DE", i_dec_nn("DE")},
 	0x2B: {1, 8, "DEC HL", i_dec_nn("HL")},
 	0x3B: {1, 8, "DEC SP", i_dec_nn("SP")},
+	0x35: {1, 12, "DEC (HL)", i_dec_phl},
 
 	0x80: {1, 4, "ADD A,B", i_add_a_n('B')},
 	0x81: {1, 4, "ADD A,C", i_add_a_n('C')},
@@ -275,6 +276,17 @@ func i_dec_nn(name string) InstructionImplementation {
 		r := c.GetRegisterAddress(name)
 		*r--
 	}
+}
+
+// Decrements value pointer by HL
+func i_dec_phl(c *CPU, _, _ byte) {
+	var b byte
+
+	b, c.FlagHalfCarry = decrement(c.Fetch(c.HL))
+	c.Write(c.HL, b)
+
+	c.FlagZero = b == 0
+	c.FlagSubstract = true
 }
 
 // Decrements register n
