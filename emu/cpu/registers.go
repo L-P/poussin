@@ -76,6 +76,14 @@ func (c *CPU) GetFlags() byte {
 	return f
 }
 
+// Sets the flags from a byte (ie. write to F register)
+func (c *CPU) SetFlags(b byte) {
+	c.FlagZero = (b & (1 << 7)) > 0
+	c.FlagSubstract = (b & (1 << 6)) > 0
+	c.FlagHalfCarry = (b & (1 << 5)) > 0
+	c.FlagCarry = (b & (1 << 4)) > 0
+}
+
 // Returns the get/set function for a register given by name (eg. 'H')
 func (c *CPU) GetRegisterCallbacks(name byte) (get func() byte, set func(byte)) {
 	switch name {

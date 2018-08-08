@@ -33,6 +33,8 @@ var Instructions = map[byte]Instruction{
 	0x1B: {1, 8, "DEC DE", i_dec_nn("DE")},
 	0x2B: {1, 8, "DEC HL", i_dec_nn("HL")},
 	0x3B: {1, 8, "DEC SP", i_dec_nn("SP")},
+
+	0x34: {1, 12, "INC (HL)", i_inc_phl},
 	0x35: {1, 12, "DEC (HL)", i_dec_phl},
 
 	0x80: {1, 4, "ADD A,B", i_add_a_n('B')},
@@ -44,6 +46,7 @@ var Instructions = map[byte]Instruction{
 	0x87: {1, 4, "ADD A,A", i_add_a_n('A')},
 
 	0x86: {1, 8, "ADD A,(HL)", i_add_a_phl},
+	0xC6: {2, 8, "ADD A,(%02X)", i_add_a_d8},
 
 	0x09: {1, 8, "ADD HL,BC", i_add_hl_nn("BC")},
 	0x19: {1, 8, "ADD HL,DE", i_add_hl_nn("DE")},
@@ -108,6 +111,7 @@ var Instructions = map[byte]Instruction{
 	0x6E: {1, 8, "LD L,(HL)", i_ld_n_pnn('L', "HL")},
 
 	0x2A: {1, 8, "LDI A,(HL)", i_ldi_a_phl},
+	0x3A: {1, 8, "LDD A,(HL)", i_ldd_a_phl},
 
 	0x40: {1, 4, "LD B,B", i_ld_n_n('B', 'B')},
 	0x41: {1, 4, "LD B,C", i_ld_n_n('B', 'C')},
@@ -209,6 +213,7 @@ var Instructions = map[byte]Instruction{
 	0xC1: {1, 12, "POP BC", i_pop_nn("BC")},
 	0xD1: {1, 12, "POP DE", i_pop_nn("DE")},
 	0xE1: {1, 12, "POP HL", i_pop_nn("HL")},
+	0xF1: {1, 12, "POP AF", i_pop_af},
 
 	0xCB: {1, 4, "PREFIX CB", i_prefix_cb},
 	0xCD: {3, 24, "CALL $%02X%02X", i_call},
@@ -287,6 +292,17 @@ func i_dec_phl(c *CPU, _, _ byte) {
 
 	c.FlagZero = b == 0
 	c.FlagSubstract = true
+}
+
+// Increments value pointer by HL
+func i_inc_phl(c *CPU, _, _ byte) {
+	var b byte
+
+	b, c.FlagHalfCarry = increment(c.Fetch(c.HL))
+	c.Write(c.HL, b)
+
+	c.FlagZero = b == 0
+	c.FlagSubstract = false
 }
 
 // Decrements register n
@@ -500,6 +516,12 @@ func i_push_af(c *CPU, _, _ byte) {
 	c.StackPush16b((uint16(c.A) << 8) | uint16(c.GetFlags()))
 }
 
+func i_pop_af(c *CPU, _, _ byte) {
+	w := c.StackPop16b()
+	c.A = byte(w >> 8)
+	c.SetFlags(byte(w & 0xFF))
+}
+
 // Pops two bytes from the stack to nn
 func i_pop_nn(name string) InstructionImplementation {
 	return func(c *CPU, l, h byte) {
@@ -518,10 +540,16 @@ func i_ld_n_pnn(dst byte, src string) InstructionImplementation {
 	}
 }
 
-// Loads the value at address pointed by HL in A and increment HL
+// Loads the value at address pointed by HL in A and increments HL
 func i_ldi_a_phl(c *CPU, _, _ byte) {
 	c.A = c.Fetch(c.HL)
 	c.HL++
+}
+
+// Loads the value at address pointed by HL in A and decrements HL
+func i_ldd_a_phl(c *CPU, _, _ byte) {
+	c.A = c.Fetch(c.HL)
+	c.HL--
 }
 
 // Loads the value of register n into n
@@ -604,6 +632,17 @@ func i_add_a_phl(c *CPU, _, _ byte) {
 	c.FlagZero = c.A == 0
 	c.FlagSubstract = false
 	c.FlagHalfCarry = (((old & 0xF) + (add & 0xF)) & 0x10) > 0
+	c.FlagCarry = c.A < old
+}
+
+// Adds the given value to A
+func i_add_a_d8(c *CPU, l, _ byte) {
+	old := c.A
+
+	c.A += l
+	c.FlagZero = c.A == 0
+	c.FlagSubstract = false
+	c.FlagHalfCarry = (((old & 0xF) + (l & 0xF)) & 0x10) > 0
 	c.FlagCarry = c.A < old
 }
 

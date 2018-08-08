@@ -189,6 +189,15 @@ var CBInstructions = map[byte]Instruction{
 	0x34: {1, 4, "SWAP H", i_cb_swap_n('H')},
 	0x35: {1, 4, "SWAP L", i_cb_swap_n('L')},
 	0x37: {1, 4, "SWAP A", i_cb_swap_n('A')},
+
+	0x86: {1, 16, "RES 0,(HL)", i_cb_res_x_phl(0)},
+	0x8E: {1, 16, "RES 1,(HL)", i_cb_res_x_phl(1)},
+	0x96: {1, 16, "RES 2,(HL)", i_cb_res_x_phl(2)},
+	0x9E: {1, 16, "RES 3,(HL)", i_cb_res_x_phl(3)},
+	0xA6: {1, 16, "RES 4,(HL)", i_cb_res_x_phl(4)},
+	0xAE: {1, 16, "RES 5,(HL)", i_cb_res_x_phl(5)},
+	0xB6: {1, 16, "RES 6,(HL)", i_cb_res_x_phl(6)},
+	0xBE: {1, 16, "RES 7,(HL)", i_cb_res_x_phl(7)},
 }
 
 // Rotates C left through Carry flag
@@ -217,6 +226,13 @@ func i_cb_res_x_n(bit uint, name byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
 		get, set := c.GetRegisterCallbacks(name)
 		set(get() &^ (1 << bit))
+	}
+}
+
+// Resets bit x of the value pointer by HL
+func i_cb_res_x_phl(bit uint) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		c.HL = c.HL &^ (1 << bit)
 	}
 }
 
