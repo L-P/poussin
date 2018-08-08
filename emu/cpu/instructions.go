@@ -513,13 +513,13 @@ func i_push_nn(name string) InstructionImplementation {
 }
 
 func i_push_af(c *CPU, _, _ byte) {
-	c.StackPush16b((uint16(c.A) << 8) | uint16(c.GetFlags()))
+	c.StackPush16b((uint16(c.A) << 8) | uint16(c.GetF()))
 }
 
 func i_pop_af(c *CPU, _, _ byte) {
 	w := c.StackPop16b()
 	c.A = byte(w >> 8)
-	c.SetFlags(byte(w & 0xFF))
+	c.SetF(byte(w & 0xFF))
 }
 
 // Pops two bytes from the stack to nn

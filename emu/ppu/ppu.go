@@ -21,7 +21,8 @@ type PPU struct {
 	BackBufferIndex int
 
 	// We'll send to this when we're ready to display a frame
-	NextFrame chan<- *image.RGBA
+	NextFrame    chan<- *image.RGBA
+	PushedFrames int
 
 	// Registers mapped to FF40-FF4B
 	LCDC byte
@@ -253,6 +254,7 @@ func (p *PPU) SendFrame() {
 	// ie. my monitor and graphics card run at 60hz with vsync enabled so
 	// this line is the actual simulation speed regulator
 	p.NextFrame <- p.Buffers[p.BackBufferIndex]
+	p.PushedFrames++
 	p.BackBufferIndex = (p.BackBufferIndex + 1) % 2
 }
 

@@ -1,45 +1,68 @@
 package emu
 
 import (
-	"fmt"
 	"image"
-	"time"
 
 	"home.leo-peltier.fr/poussin/emu/cpu"
+	"home.leo-peltier.fr/poussin/emu/debugger"
+	"home.leo-peltier.fr/poussin/emu/ppu"
 )
 
 type Gameboy struct {
-	CPU cpu.CPU
+	cpu cpu.CPU
+	ppu *ppu.PPU
+
+	debugger debugger.Debugger
 }
 
 func NewGameboy(nextFrame chan<- *image.RGBA) *Gameboy {
-	return &Gameboy{
-		CPU: cpu.New(nextFrame),
+	gb := Gameboy{
+		ppu: ppu.New(nextFrame),
 	}
+	gb.cpu = cpu.New(gb.ppu)
+	gb.debugger = debugger.New(&gb.cpu, gb.ppu)
+
+	return &gb
 }
 
 func (g *Gameboy) LoadBootROM(rom []byte) error {
-	return g.CPU.LoadBootROM(rom)
+	return g.cpu.LoadBootROM(rom)
 }
 
 func (g *Gameboy) LoadROM(rom []byte) error {
-	return g.CPU.LoadROM(rom)
+	return g.cpu.LoadROM(rom)
 }
 
-func (g *Gameboy) Run() {
-	lastOPsTime := time.Now()
-	lastOPs := 0
+func (g *Gameboy) Run(quit chan int) {
+	go g.debugger.Run(quit)
 
 	for true {
-		if err := g.CPU.Step(); err != nil {
-			panic(err)
+		cycles, err := g.cpu.Step()
+		for i := 0; i < cycles; i++ {
+			g.ppu.Cycle()
+		}
+		g.debugger.Update()
+
+		if err != nil {
+			g.debugger.Update()
+			g.debugger.Panic(err)
+
+			// Wait for someone to tell us to quit (ie. the renderer)
+			select {
+			case <-quit:
+				return
+			}
+			return
 		}
 
-		delta := time.Now().Sub(lastOPsTime)
-		if delta >= time.Duration(1*time.Second) {
-			fmt.Printf("OP/s : %d\n", g.CPU.OPCount-lastOPs)
-			lastOPsTime = time.Now()
-			lastOPs = g.CPU.OPCount
+		select {
+		case <-quit:
+			return
+		default:
 		}
 	}
+}
+
+func (g *Gameboy) Close() {
+	g.debugger.Close()
 }

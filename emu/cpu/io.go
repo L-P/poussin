@@ -1,8 +1,6 @@
 package cpu
 
 import (
-	"fmt"
-
 	"home.leo-peltier.fr/poussin/emu/ppu"
 )
 
@@ -57,7 +55,7 @@ func (c *CPU) FetchIO(addr uint16) byte {
 	case IOIF:
 		return c.FetchIF()
 	default:
-		fmt.Printf("unhandled I/O fetch at %02X\n", addr)
+		// fmt.Printf("unhandled I/O fetch at %02X\n", addr)
 		return c.Mem[addr]
 	}
 }
@@ -77,7 +75,7 @@ func (c *CPU) WriteIO(addr uint16, value byte) {
 		return
 	default:
 		c.Mem[addr] = value
-		fmt.Printf("unhandled I/O write at %02X\n", addr)
+		// fmt.Printf("unhandled I/O write at %02X\n", addr)
 	}
 }
 

@@ -18,6 +18,7 @@ func main() {
 
 	nextFrame := make(chan *image.RGBA, 1)
 	gb := emu.NewGameboy(nextFrame)
+	defer gb.Close()
 
 	bootRom, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
@@ -35,10 +36,8 @@ func main() {
 		panic(err)
 	}
 
-	go gb.Run()
-
-	quit := make(chan int, 1)
-
+	quit := make(chan int)
+	go gb.Run(quit)
 	go gl.Run(nextFrame, quit)
 
 	select {
