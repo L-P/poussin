@@ -229,10 +229,10 @@ func i_cb_res_x_n(bit uint, name byte) InstructionImplementation {
 	}
 }
 
-// Resets bit x of the value pointer by HL
+// Resets bit x of the value pointed by HL
 func i_cb_res_x_phl(bit uint) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
-		c.HL = c.HL &^ (1 << bit)
+		c.Write(c.HL, c.Fetch(c.HL)&^(1<<bit))
 	}
 }
 
