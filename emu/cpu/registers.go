@@ -156,7 +156,7 @@ func (r *Registers) String() string {
 	)
 }
 
-func (r *Registers) MarshalBinary() (data []byte, err error) {
+func (r *Registers) MarshalBinary() ([]byte, error) {
 	return []byte{
 			r.GetA(),
 			r.GetF(),
@@ -173,6 +173,7 @@ func (r *Registers) MarshalBinary() (data []byte, err error) {
 		},
 		nil
 }
+
 func (r *Registers) UnmarshalBinary(data []byte) error {
 	if len(data) < 12 {
 		return fmt.Errorf("data less than 12 bytes: %d:", len(data))

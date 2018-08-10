@@ -1,6 +1,6 @@
 package cpu
 
-var CBInstructions = map[byte]Instruction{
+var cbInstructionsMap = map[byte]Instruction{
 	0x11: {1, 4, "RL C", i_cb_rl_c},
 
 	0x27: {1, 4, "SLA A", i_cb_sla_n('A')},

@@ -1,6 +1,6 @@
 package cpu
 
-var Instructions = map[byte]Instruction{
+var instructionsMap = map[byte]Instruction{
 	0x00: {1, 4, "NOP", i_nop},
 
 	0xF3: {1, 4, "DI", i_set_interrupt(false)},
@@ -226,6 +226,18 @@ var Instructions = map[byte]Instruction{
 	0xEF: {1, 16, "RST,$28", i_rst(0x28)},
 	0xF7: {1, 16, "RST,$30", i_rst(0x30)},
 	0xFF: {1, 16, "RST,$38", i_rst(0x38)},
+}
+
+var Instructions [0xFF + 1]Instruction
+var CBInstructions [0xFF + 1]Instruction
+
+func init() {
+	for k, v := range instructionsMap {
+		Instructions[k] = v
+	}
+	for k, v := range cbInstructionsMap {
+		CBInstructions[k] = v
+	}
 }
 
 func i_nop(*CPU, byte, byte) {}

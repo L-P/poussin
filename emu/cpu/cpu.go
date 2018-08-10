@@ -67,13 +67,8 @@ func (c *CPU) Step() (int, error) {
 }
 
 func (c *CPU) Decode(opcode byte) (Instruction, error) {
-	bank := Instructions
-	if c.NextOpcodeIsCB {
-		bank = CBInstructions
-	}
-
-	ins, ok := bank[opcode]
-	if !ok {
+	ins := Decode(opcode, c.NextOpcodeIsCB)
+	if !ins.Valid() {
 		return Instruction{}, fmt.Errorf(
 			"opcode not found: 0x%02X (CB: %t)",
 			opcode,

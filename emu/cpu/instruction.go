@@ -16,15 +16,27 @@ type Instruction struct {
 	Func InstructionImplementation
 }
 
-func (ins Instruction) String(l, h byte) string {
-	switch ins.Length {
+func (i Instruction) String(l, h byte) string {
+	switch i.Length {
 	case 1:
-		return ins.Name
+		return i.Name
 	case 2:
-		return fmt.Sprintf(ins.Name, l)
+		return fmt.Sprintf(i.Name, l)
 	case 3:
-		return fmt.Sprintf(ins.Name, h, l)
+		return fmt.Sprintf(i.Name, h, l)
 	}
 
 	panic("unreachable")
+}
+
+func (i Instruction) Valid() bool {
+	return i.Cycles > 0
+}
+
+func Decode(opcode byte, cb bool) Instruction {
+	if cb {
+		return CBInstructions[opcode]
+	}
+
+	return Instructions[opcode]
 }
