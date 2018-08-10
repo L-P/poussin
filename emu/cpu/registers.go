@@ -120,6 +120,7 @@ func (r *Registers) GetRegisterCallbacks(name byte) (get func() byte, set func(b
 	panic("unreachable")
 }
 
+// Returns the address of a 16b register by its name.
 func (r *Registers) GetRegisterAddress(name string) *uint16 {
 	switch name {
 	case "BC":
@@ -135,6 +136,7 @@ func (r *Registers) GetRegisterAddress(name string) *uint16 {
 	panic("unreachable")
 }
 
+// Returns a human-readable version of the registers state.
 func (r *Registers) String() string {
 	flags := [4]byte{'-', '-', '-', '-'}
 	if r.FlagZero {
@@ -156,39 +158,33 @@ func (r *Registers) String() string {
 	)
 }
 
-func (r *Registers) MarshalBinary() ([]byte, error) {
-	return []byte{
-			r.GetA(),
-			r.GetF(),
-			r.GetB(),
-			r.GetC(),
-			r.GetD(),
-			r.GetE(),
-			r.GetH(),
-			r.GetL(),
-			byte((r.PC & 0x0F)),
-			byte((r.PC & 0xF0) >> 8),
-			byte((r.SP & 0x0F)),
-			byte((r.SP & 0xF0) >> 8),
-		},
-		nil
+// Writes 12 bytes of register data to the given array starting at the given offset.
+func (r *Registers) WriteToArray(a []byte, i int) {
+	a[i+0] = r.GetA()
+	a[i+1] = r.GetF()
+	a[i+2] = r.GetB()
+	a[i+3] = r.GetC()
+	a[i+4] = r.GetD()
+	a[i+5] = r.GetE()
+	a[i+6] = r.GetH()
+	a[i+7] = r.GetL()
+	a[i+8] = byte((r.PC & 0xFF00) >> 8)
+	a[i+9] = byte((r.PC & 0x00FF))
+	a[i+10] = byte((r.SP & 0xFF00) >> 8)
+	a[i+11] = byte((r.SP & 0x00FF))
 }
 
-func (r *Registers) UnmarshalBinary(data []byte) error {
-	if len(data) < 12 {
-		return fmt.Errorf("data less than 12 bytes: %d:", len(data))
+// Creates a new Registers object from an array and a base offset.
+func ReadFromArray(a []byte, i int) Registers {
+	r := Registers{
+		A:  a[i+0],
+		BC: (uint16(a[i+2]) << 8) | uint16(a[i+3]),
+		DE: (uint16(a[i+4]) << 8) | uint16(a[i+5]),
+		HL: (uint16(a[i+6]) << 8) | uint16(a[i+6]),
+		PC: (uint16(a[i+8]) << 8) | uint16(a[i+9]),
+		SP: (uint16(a[i+10]) << 8) | uint16(a[i+11]),
 	}
+	r.SetF(a[i+1])
 
-	r.SetA(data[0])
-	r.SetF(data[1])
-	r.SetB(data[2])
-	r.SetC(data[3])
-	r.SetD(data[4])
-	r.SetE(data[5])
-	r.SetH(data[6])
-	r.SetL(data[7])
-	r.PC = uint16(data[8]) | (uint16(data[9]) << 8)
-	r.SP = uint16(data[10]) | (uint16(data[11]) << 8)
-
-	return nil
+	return r
 }

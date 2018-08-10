@@ -1,7 +1,6 @@
 package debugger
 
 import (
-	"container/ring"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,7 +24,10 @@ type Debugger struct {
 
 	out *os.File
 
-	insBuffer              *ring.Ring
+	// registers + opcode + CB + low arg + high arg
+	// Keep 1280 Kio worth of history, which is quite a lot of instructions
+	insBuffer              [(12 + 4) * 40960]byte
+	curInsBufferWriteIndex int
 	msgBuffer              string
 	insLastRenderedOpCount int
 
@@ -63,9 +65,8 @@ func New(c *cpu.CPU, p *ppu.PPU) Debugger {
 		gui: gui,
 		out: out,
 
-		insBuffer: ring.New(2048),
-		pause:     abool.New(),
-		quit:      abool.New(),
+		pause: abool.New(),
+		quit:  abool.New(),
 	}
 
 	d.gui.SetManagerFunc(d.layout)
@@ -179,15 +180,17 @@ func (d *Debugger) updateInstructions() {
 		time.Sleep(time.Duration(100 * time.Millisecond))
 	}
 
-	registers, _ := d.cpu.MarshalBinary()
-	d.insBuffer.Value = instruction{
-		opcode:    d.cpu.LastOpcode,
-		cb:        d.cpu.LastOpcodeWasCB,
-		l:         d.cpu.LastLowArg,
-		h:         d.cpu.LastHighArg,
-		registers: registers,
+	var cb byte
+	if d.cpu.LastOpcodeWasCB {
+		cb = 0x01
 	}
-	d.insBuffer = d.insBuffer.Next()
+
+	d.cpu.WriteToArray(d.insBuffer[:], d.curInsBufferWriteIndex)
+	d.insBuffer[d.curInsBufferWriteIndex+12+0] = d.cpu.LastOpcode
+	d.insBuffer[d.curInsBufferWriteIndex+12+1] = cb
+	d.insBuffer[d.curInsBufferWriteIndex+12+2] = d.cpu.LastLowArg
+	d.insBuffer[d.curInsBufferWriteIndex+12+3] = d.cpu.LastHighArg
+	d.curInsBufferWriteIndex = (d.curInsBufferWriteIndex + 16) % len(d.insBuffer)
 }
 
 func (d *Debugger) updateMessages() {
@@ -248,30 +251,29 @@ func (d *Debugger) updateInsWindow(g *gocui.Gui) error {
 		return err
 	}
 
-	d.insBuffer.Do(func(v interface{}) {
-		if v == nil {
-			return
+	for i := d.curInsBufferWriteIndex; i != d.curInsBufferWriteIndex-16; i = (i + 16) % len(d.insBuffer) {
+		registers := cpu.ReadFromArray(d.insBuffer[:], i)
+		opcode := d.insBuffer[i+12+0]
+		l := d.insBuffer[i+12+2]
+		h := d.insBuffer[i+12+3]
+
+		var cb bool
+		if d.insBuffer[i+12+1] != 0x00 {
+			cb = true
 		}
 
-		b := v.(instruction)
-
-		ins := cpu.Decode(b.opcode, b.cb)
+		ins := cpu.Decode(opcode, cb)
 		if !ins.Valid() {
-			return
-		}
-
-		var registers cpu.Registers
-		if err := registers.UnmarshalBinary(b.registers); err != nil {
-			return
+			continue
 		}
 
 		fmt.Fprintf(
 			view,
 			"%-22s %s\n",
-			ins.String(b.l, b.h),
+			ins.String(l, h),
 			registers.String(),
 		)
-	})
+	}
 
 	d.insLastRenderedOpCount = d.opCount
 
