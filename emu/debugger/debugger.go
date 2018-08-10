@@ -22,6 +22,7 @@ type Debugger struct {
 	lastCPUError error
 	quit         *abool.AtomicBool
 	pause        *abool.AtomicBool
+	stepOnce     *abool.AtomicBool
 
 	// Keep 1280 Kio worth of history, which is quite a lot of instructions
 	insBuffer              [insBufferStride * 40960]byte
@@ -49,8 +50,9 @@ func New(c *cpu.CPU, p *ppu.PPU) Debugger {
 		ppu: p,
 		gui: gui,
 
-		pause: abool.New(),
-		quit:  abool.New(),
+		pause:    abool.New(),
+		quit:     abool.New(),
+		stepOnce: abool.New(),
 	}
 
 	d.gui.SetManagerFunc(d.layout)
@@ -67,6 +69,20 @@ func (d *Debugger) initKeybinds() {
 	if err := d.gui.SetKeybinding("", 'q', gocui.ModNone, d.cbQuit); err != nil {
 		panic(err)
 	}
+
+	if err := d.gui.SetKeybinding("", 'l', gocui.ModNone, d.cbStep); err != nil {
+		panic(err)
+	}
+}
+
+func (d *Debugger) cbStep(g *gocui.Gui, v *gocui.View) error {
+	if !d.pause.IsSet() {
+		return nil
+	}
+
+	d.stepOnce.Set()
+
+	return nil
 }
 
 func (d *Debugger) cbPause(g *gocui.Gui, v *gocui.View) error {
@@ -148,12 +164,16 @@ func (d *Debugger) Panic(err error) {
 }
 
 func (d *Debugger) Update() {
-	for d.pause.IsSet() {
-		time.Sleep(time.Duration(100 * time.Millisecond))
-	}
-
 	d.updateInstructions()
 	d.updateMessages()
+
+	for d.pause.IsSet() {
+		time.Sleep(time.Duration(100 * time.Millisecond))
+		if d.stepOnce.IsSet() {
+			d.stepOnce.UnSet()
+			break
+		}
+	}
 }
 
 func (d *Debugger) updateGUI(g *gocui.Gui) error {
@@ -169,10 +189,6 @@ func (d *Debugger) updateGUI(g *gocui.Gui) error {
 }
 
 func (d *Debugger) updateInstructions() {
-	for d.pause.IsSet() {
-		time.Sleep(time.Duration(100 * time.Millisecond))
-	}
-
 	var cb byte
 	if d.cpu.LastOpcodeWasCB {
 		cb = 0x01
