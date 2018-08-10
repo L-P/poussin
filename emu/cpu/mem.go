@@ -65,25 +65,31 @@ const (
 
 // AddrToMemType returns the MemType the given address belongs to
 func AddrToMemType(addr uint16) MemType {
-	ranges := map[MemType][2]uint16{
-		ROM0:       {0x0000, 0x3FFF},
-		ROMX:       {0x4000, 0x7FFF},
-		VRAM:       {0x8000, 0x9FFF},
-		SRAM:       {0xA000, 0xBFFF},
-		WRAM0:      {0xC000, 0xCFFF},
-		WRAMX:      {0xD000, 0xDFFF},
-		Echo:       {0xE000, 0xFDFF},
-		OAM:        {0xFE00, 0xFE9F},
-		Unused:     {0xFEA0, 0xFEFF},
-		IO:         {0xFF00, 0xFF7F},
-		HRAM:       {0xFF80, 0xFFFE},
-		IERegister: {0xFFFF, 0xFFFF},
-	}
-
-	for k, v := range ranges {
-		if addr >= v[0] && addr <= v[1] {
-			return k
-		}
+	switch {
+	case addr >= 0x0000 && addr <= 0x3FFF:
+		return ROM0
+	case addr >= 0x4000 && addr <= 0x7FFF:
+		return ROMX
+	case addr >= 0x8000 && addr <= 0x9FFF:
+		return VRAM
+	case addr >= 0xA000 && addr <= 0xBFFF:
+		return SRAM
+	case addr >= 0xC000 && addr <= 0xCFFF:
+		return WRAM0
+	case addr >= 0xD000 && addr <= 0xDFFF:
+		return WRAMX
+	case addr >= 0xE000 && addr <= 0xFDFF:
+		return Echo
+	case addr >= 0xFE00 && addr <= 0xFE9F:
+		return OAM
+	case addr >= 0xFEA0 && addr <= 0xFEFF:
+		return Unused
+	case addr >= 0xFF00 && addr <= 0xFF7F:
+		return IO
+	case addr >= 0xFF80 && addr <= 0xFFFE:
+		return HRAM
+	case addr >= 0xFFFF && addr <= 0xFFFF:
+		return IERegister
 	}
 
 	panic("unreachable")
