@@ -33,7 +33,7 @@ func (g *Gameboy) LoadROM(rom []byte) error {
 	return g.cpu.LoadROM(rom)
 }
 
-func (g *Gameboy) Run(quit chan int) {
+func (g *Gameboy) Run(quit chan bool) {
 	go g.debugger.Run(quit)
 
 	for true {

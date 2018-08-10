@@ -11,7 +11,7 @@ import (
 	"home.leo-peltier.fr/poussin/emu/ppu"
 )
 
-func Run(nextFrame <-chan *image.RGBA, quit chan<- int) {
+func Run(nextFrame <-chan *image.RGBA, quit chan<- bool) {
 	runtime.LockOSThread()
 
 	if err := glfw.Init(); err != nil {
@@ -56,7 +56,7 @@ func Run(nextFrame <-chan *image.RGBA, quit chan<- int) {
 		glfw.PollEvents()
 	}
 
-	quit <- 1
+	quit <- true
 }
 
 func drawPlane(program, vao, texture uint32) {

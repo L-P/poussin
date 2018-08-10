@@ -55,14 +55,14 @@ func main() {
 		panic(err)
 	}
 
-	quit := make(chan int)
+	quit := make(chan bool)
 	go gb.Run(quit)
 	go gl.Run(nextFrame, quit)
 
 	select {
 	case <-quit:
-
 	}
+	close(quit)
 
 	if *memprofile != "" {
 		f, err := os.Create(*memprofile)

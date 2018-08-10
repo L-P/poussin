@@ -2,8 +2,6 @@ package debugger
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/jroimartin/gocui"
@@ -11,6 +9,9 @@ import (
 	"home.leo-peltier.fr/poussin/emu/cpu"
 	"home.leo-peltier.fr/poussin/emu/ppu"
 )
+
+// registers + opcode + CB + low arg + high arg
+const insBufferStride = 12 + 4
 
 type Debugger struct {
 	cpu *cpu.CPU
@@ -22,11 +23,8 @@ type Debugger struct {
 	quit         *abool.AtomicBool
 	pause        *abool.AtomicBool
 
-	out *os.File
-
-	// registers + opcode + CB + low arg + high arg
 	// Keep 1280 Kio worth of history, which is quite a lot of instructions
-	insBuffer              [(12 + 4) * 40960]byte
+	insBuffer              [insBufferStride * 40960]byte
 	curInsBufferWriteIndex int
 	msgBuffer              string
 	insLastRenderedOpCount int
@@ -40,21 +38,8 @@ type Debugger struct {
 	framePerSecond int
 }
 
-type instruction struct {
-	opcode    byte
-	cb        bool
-	h         byte
-	l         byte
-	registers []byte
-}
-
 func New(c *cpu.CPU, p *ppu.PPU) Debugger {
 	gui, err := gocui.NewGui(gocui.OutputNormal)
-	if err != nil {
-		panic(err)
-	}
-
-	out, err := ioutil.TempFile("/dev/shm", "poussin.out.")
 	if err != nil {
 		panic(err)
 	}
@@ -63,7 +48,6 @@ func New(c *cpu.CPU, p *ppu.PPU) Debugger {
 		cpu: c,
 		ppu: p,
 		gui: gui,
-		out: out,
 
 		pause: abool.New(),
 		quit:  abool.New(),
@@ -79,6 +63,10 @@ func (d *Debugger) initKeybinds() {
 	if err := d.gui.SetKeybinding("", 'p', gocui.ModNone, d.cbPause); err != nil {
 		panic(err)
 	}
+
+	if err := d.gui.SetKeybinding("", 'q', gocui.ModNone, d.cbQuit); err != nil {
+		panic(err)
+	}
 }
 
 func (d *Debugger) cbPause(g *gocui.Gui, v *gocui.View) error {
@@ -92,12 +80,15 @@ func (d *Debugger) cbPause(g *gocui.Gui, v *gocui.View) error {
 	return nil
 }
 
+func (d *Debugger) cbQuit(g *gocui.Gui, v *gocui.View) error {
+	d.quit.Set()
+	return nil
+}
+
 func (d *Debugger) Close() {
 	d.quit.Set()
 	d.pause.Set()
 	d.gui.Close()
-	fmt.Println(d.out.Name())
-	d.out.Close()
 }
 
 func (d *Debugger) layout(g *gocui.Gui) error {
@@ -125,7 +116,7 @@ func (d *Debugger) layout(g *gocui.Gui) error {
 	return nil
 }
 
-func (d *Debugger) Run(quit chan int) {
+func (d *Debugger) Run(quit chan bool) {
 	go func() {
 		if err := d.gui.MainLoop(); err != nil && err != gocui.ErrQuit {
 			// HACK: When using pprof gocui throws this, this is weird and should be investigated.
@@ -147,6 +138,8 @@ func (d *Debugger) Run(quit chan int) {
 			return
 		}
 	}
+
+	quit <- true
 }
 
 func (d *Debugger) Panic(err error) {
@@ -190,7 +183,7 @@ func (d *Debugger) updateInstructions() {
 	d.insBuffer[d.curInsBufferWriteIndex+12+1] = cb
 	d.insBuffer[d.curInsBufferWriteIndex+12+2] = d.cpu.LastLowArg
 	d.insBuffer[d.curInsBufferWriteIndex+12+3] = d.cpu.LastHighArg
-	d.curInsBufferWriteIndex = (d.curInsBufferWriteIndex + 16) % len(d.insBuffer)
+	d.curInsBufferWriteIndex = (d.curInsBufferWriteIndex + insBufferStride) % len(d.insBuffer)
 }
 
 func (d *Debugger) updateMessages() {
@@ -251,7 +244,7 @@ func (d *Debugger) updateInsWindow(g *gocui.Gui) error {
 		return err
 	}
 
-	for i := d.curInsBufferWriteIndex; i != d.curInsBufferWriteIndex-16; i = (i + 16) % len(d.insBuffer) {
+	for i := d.curInsBufferWriteIndex; i != d.curInsBufferWriteIndex-insBufferStride; i = (i + insBufferStride) % len(d.insBuffer) {
 		registers := cpu.ReadFromArray(d.insBuffer[:], i)
 		opcode := d.insBuffer[i+12+0]
 		l := d.insBuffer[i+12+2]
