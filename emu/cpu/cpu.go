@@ -43,6 +43,12 @@ func New(ppu *ppu.PPU) CPU {
 }
 
 func (c *CPU) Step() (int, error) {
+	if cycles := c.CheckInterrupts(); cycles > 0 {
+		c.InterruptMaster = false
+		c.Cycle += cycles
+		return cycles, nil
+	}
+
 	opcode := c.Fetch(c.PC)
 	cb := c.NextOpcodeIsCB
 	ins, err := c.Decode(opcode)
@@ -109,4 +115,22 @@ func (c *CPU) LoadROM(data []byte) error {
 	}
 
 	return nil
+}
+
+func (c *CPU) InterruptVBlank() int {
+	c.StackPush16b(c.PC)
+	c.PC = 0x0040
+	return 20
+}
+
+func (c *CPU) CheckInterrupts() int {
+	if !c.InterruptMaster {
+		return 0
+	}
+
+	if c.PPU.VBlank && c.IEEnabled(IEVBlank) {
+		return c.InterruptVBlank()
+	}
+
+	return 0
 }

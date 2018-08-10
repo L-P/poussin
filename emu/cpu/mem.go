@@ -63,6 +63,14 @@ const (
 	IERegister                 // Interrupt enable flags
 )
 
+const (
+	IEVBlank  = 1 << 0
+	IELCDSTAT = 1 << 1
+	IETimer   = 1 << 2
+	IESerial  = 1 << 3
+	IEJoypad  = 1 << 4
+)
+
 // AddrToMemType returns the MemType the given address belongs to
 func AddrToMemType(addr uint16) MemType {
 	switch {
@@ -121,4 +129,8 @@ func (c *CPU) WriteIE(value byte) {
 
 func (c *CPU) FetchIE() byte {
 	return c.InterruptEnable
+}
+
+func (c *CPU) IEEnabled(ie byte) bool {
+	return (c.FetchIE() & ie) != 0x00
 }

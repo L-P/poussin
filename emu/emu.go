@@ -44,7 +44,6 @@ func (g *Gameboy) Run(quit chan bool) {
 		g.debugger.Update()
 
 		if err != nil {
-			g.debugger.Update()
 			g.debugger.Panic(err)
 
 			// Wait for someone to tell us to quit (ie. the renderer)

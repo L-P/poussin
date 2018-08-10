@@ -1,7 +1,23 @@
 package cpu
 
+import "math/bits"
+
 var cbInstructionsMap = map[byte]Instruction{
-	0x11: {1, 4, "RL C", i_cb_rl_c},
+	0x00: {1, 4, "RLC B", i_cb_rlc_n('B')},
+	0x01: {1, 4, "RLC C", i_cb_rlc_n('C')},
+	0x02: {1, 4, "RLC D", i_cb_rlc_n('D')},
+	0x03: {1, 4, "RLC E", i_cb_rlc_n('E')},
+	0x04: {1, 4, "RLC H", i_cb_rlc_n('H')},
+	0x05: {1, 4, "RLC L", i_cb_rlc_n('L')},
+	0x07: {1, 4, "RLC A", i_cb_rlc_n('A')},
+
+	0x10: {1, 4, "RL B", i_cb_rl_n('B')},
+	0x11: {1, 4, "RL C", i_cb_rl_n('C')},
+	0x12: {1, 4, "RL D", i_cb_rl_n('D')},
+	0x13: {1, 4, "RL E", i_cb_rl_n('E')},
+	0x14: {1, 4, "RL H", i_cb_rl_n('H')},
+	0x15: {1, 4, "RL L", i_cb_rl_n('L')},
+	0x17: {1, 4, "RL A", i_cb_rl_n('A')},
 
 	0x27: {1, 4, "SLA A", i_cb_sla_n('A')},
 	0x20: {1, 4, "SLA B", i_cb_sla_n('B')},
@@ -198,17 +214,29 @@ var cbInstructionsMap = map[byte]Instruction{
 	0xAE: {1, 16, "RES 5,(HL)", i_cb_res_x_phl(5)},
 	0xB6: {1, 16, "RES 6,(HL)", i_cb_res_x_phl(6)},
 	0xBE: {1, 16, "RES 7,(HL)", i_cb_res_x_phl(7)},
+
+	0xC6: {1, 16, "SET 0,(HL)", i_cb_set_x_phl(0)},
+	0xCE: {1, 16, "SET 1,(HL)", i_cb_set_x_phl(1)},
+	0xD6: {1, 16, "SET 2,(HL)", i_cb_set_x_phl(2)},
+	0xDE: {1, 16, "SET 3,(HL)", i_cb_set_x_phl(3)},
+	0xE6: {1, 16, "SET 4,(HL)", i_cb_set_x_phl(4)},
+	0xEE: {1, 16, "SET 5,(HL)", i_cb_set_x_phl(5)},
+	0xF6: {1, 16, "SET 6,(HL)", i_cb_set_x_phl(6)},
+	0xFE: {1, 16, "SET 7,(HL)", i_cb_set_x_phl(7)},
 }
 
-// Rotates C left through Carry flag
-func i_cb_rl_c(c *CPU, _, _ byte) {
-	var C byte
-	C, c.FlagCarry = rotateLeftWithCarry(c.GetC(), c.FlagCarry)
+// Rotates n left through Carry flag
+func i_cb_rl_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, set := c.GetRegisterCallbacks(name)
+		var b byte
+		b, c.FlagCarry = rotateLeftWithCarry(get(), c.FlagCarry)
 
-	c.SetC(C)
-	c.FlagZero = C == 0
-	c.FlagSubstract = false
-	c.FlagHalfCarry = false
+		set(b)
+		c.FlagZero = b == 0
+		c.FlagSubstract = false
+		c.FlagHalfCarry = false
+	}
 }
 
 // Sets flag Z if the nth bit of n is not set
@@ -233,6 +261,13 @@ func i_cb_res_x_n(bit uint, name byte) InstructionImplementation {
 func i_cb_res_x_phl(bit uint) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
 		c.Write(c.HL, c.Fetch(c.HL)&^(1<<bit))
+	}
+}
+
+// Sets bit x of the value pointed by HL
+func i_cb_set_x_phl(bit uint) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		c.Write(c.HL, c.Fetch(c.HL)|(1<<bit))
 	}
 }
 
@@ -270,5 +305,22 @@ func i_cb_sla_n(name byte) InstructionImplementation {
 		c.ClearFlags()
 		c.FlagZero = b == 0
 		c.FlagCarry = (w & (1 << 8)) > 0
+	}
+}
+
+// Rotates n left, old 7 bit to carry
+func i_cb_rlc_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, set := c.GetRegisterCallbacks(name)
+
+		b := get()
+		c.FlagCarry = (b & (1 << 7)) > 0
+
+		b = bits.RotateLeft8(b, 1)
+		set(b)
+
+		c.FlagZero = b == 0
+		c.FlagHalfCarry = false
+		c.FlagSubstract = false
 	}
 }

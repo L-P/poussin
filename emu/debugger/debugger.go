@@ -160,6 +160,7 @@ func (d *Debugger) Run(quit chan bool) {
 
 func (d *Debugger) Panic(err error) {
 	d.lastCPUError = err
+	d.updateMessages()
 	d.pause.Set()
 }
 

@@ -7,6 +7,7 @@ var instructionsMap = map[byte]Instruction{
 	0xFB: {1, 4, "EI", i_set_interrupt(true)},
 
 	0x2F: {1, 4, "CPL", i_cpl},
+	0x07: {1, 4, "RLCA", i_cb_rlc_n('A')},
 
 	0x3C: {1, 4, "INC A", i_inc_a},
 	0x04: {1, 4, "INC B", i_inc_n('B')},
@@ -44,6 +45,14 @@ var instructionsMap = map[byte]Instruction{
 	0x84: {1, 4, "ADD A,H", i_add_a_n('H')},
 	0x85: {1, 4, "ADD A,L", i_add_a_n('L')},
 	0x87: {1, 4, "ADD A,A", i_add_a_n('A')},
+
+	0x88: {1, 4, "ADC A,B", i_adc_a_n('B')},
+	0x89: {1, 4, "ADC A,C", i_adc_a_n('C')},
+	0x8A: {1, 4, "ADC A,D", i_adc_a_n('D')},
+	0x8B: {1, 4, "ADC A,E", i_adc_a_n('E')},
+	0x8C: {1, 4, "ADC A,H", i_adc_a_n('H')},
+	0x8D: {1, 4, "ADC A,L", i_adc_a_n('L')},
+	0x8F: {1, 4, "ADC A,A", i_adc_a_n('A')},
 
 	0x86: {1, 8, "ADD A,(HL)", i_add_a_phl},
 	0xC6: {2, 8, "ADD A,(%02X)", i_add_a_d8},
@@ -190,7 +199,15 @@ var instructionsMap = map[byte]Instruction{
 	0xF0: {2, 12, "LDH A,($%02X)", i_ldh_a_pn},
 
 	0xBE: {1, 8, "CP (HL)", i_cp_phl},
-	0xFE: {2, 8, "CP $%02X", i_cp_n},
+	0xFE: {2, 8, "CP $%02X", i_cp_8b},
+
+	0xB8: {2, 4, "CP B", i_cp_n('B')},
+	0xB9: {2, 4, "CP C", i_cp_n('C')},
+	0xBA: {2, 4, "CP D", i_cp_n('D')},
+	0xBB: {2, 4, "CP E", i_cp_n('E')},
+	0xBC: {2, 4, "CP H", i_cp_n('H')},
+	0xBD: {2, 4, "CP L", i_cp_n('L')},
+	0xBF: {2, 4, "CP A", i_cp_n('A')},
 
 	0x18: {2, 8, "JR $%02X", i_jr},
 	0x28: {2, 8, "JR Z,$%02X", i_jr_z},
@@ -202,6 +219,7 @@ var instructionsMap = map[byte]Instruction{
 	0xE9: {1, 4, "JP (HL)", i_jp_hl}, // weird mnemonic, we go to HL, not (HL)
 
 	0xC9: {1, 8, "RET", i_ret},
+	0xD9: {1, 16, "RETI", i_reti},
 	0xC0: {1, 8, "RET Z", i_ret_z},
 	0xC8: {1, 8, "RET NZ", i_ret_nz},
 
@@ -502,6 +520,12 @@ func i_ret(c *CPU, _, _ byte) {
 	c.PC = c.StackPop16b()
 }
 
+// Pops a two bytes address stack, jump to it, and enable interrupts
+func i_reti(c *CPU, _, _ byte) {
+	c.PC = c.StackPop16b()
+	c.InterruptMaster = true
+}
+
 // Pops a two bytes address stack and jump to it if Z is set
 func i_ret_z(c *CPU, _, _ byte) {
 	if c.FlagZero {
@@ -612,11 +636,19 @@ func i_jp_z(c *CPU, l, h byte) {
 }
 
 // Compare A with the given value
-func i_cp_n(c *CPU, l, _ byte) {
+func i_cp_8b(c *CPU, l, _ byte) {
 	c.FlagZero = c.A-l == 0
 	c.FlagSubstract = true
 	c.FlagHalfCarry = (c.A & 0xF) < (l & 0xF)
 	c.FlagCarry = c.A < l
+}
+
+// Compare A with the given register
+func i_cp_n(name byte) InstructionImplementation {
+	return func(c *CPU, l, _ byte) {
+		get, _ := c.GetRegisterCallbacks(name)
+		i_cp_8b(c, get(), 0x00)
+	}
 }
 
 // Adds the value n to A
@@ -626,6 +658,22 @@ func i_add_a_n(name byte) InstructionImplementation {
 
 		old := c.A
 		add := get()
+
+		c.A += add
+		c.FlagZero = c.A == 0
+		c.FlagSubstract = false
+		c.FlagHalfCarry = (((old & 0xF) + (add & 0xF)) & 0x10) > 0
+		c.FlagCarry = c.A < old
+	}
+}
+
+// Adds the value n to A + 1 if the carry flag is set
+func i_adc_a_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, _ := c.GetRegisterCallbacks(name)
+
+		old := c.A
+		add := get() + 1
 
 		c.A += add
 		c.FlagZero = c.A == 0
