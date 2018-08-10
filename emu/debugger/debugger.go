@@ -39,10 +39,11 @@ type Debugger struct {
 }
 
 type instruction struct {
-	opcode byte
-	cb     bool
-	h      byte
-	l      byte
+	opcode    byte
+	cb        bool
+	h         byte
+	l         byte
+	registers []byte
 }
 
 func New(c *cpu.CPU, p *ppu.PPU) Debugger {
@@ -126,7 +127,10 @@ func (d *Debugger) layout(g *gocui.Gui) error {
 func (d *Debugger) Run(quit chan int) {
 	go func() {
 		if err := d.gui.MainLoop(); err != nil && err != gocui.ErrQuit {
-			panic(err)
+			// HACK: When using pprof gocui throws this, this is weird and should be investigated.
+			if err.Error() != "invalid dimensions" {
+				panic(err)
+			}
 		}
 	}()
 
@@ -175,11 +179,13 @@ func (d *Debugger) updateInstructions() {
 		time.Sleep(time.Duration(100 * time.Millisecond))
 	}
 
+	registers, _ := d.cpu.MarshalBinary()
 	d.insBuffer.Value = instruction{
-		opcode: d.cpu.LastOpcode,
-		cb:     d.cpu.LastOpcodeWasCB,
-		l:      d.cpu.LastLowArg,
-		h:      d.cpu.LastHighArg,
+		opcode:    d.cpu.LastOpcode,
+		cb:        d.cpu.LastOpcodeWasCB,
+		l:         d.cpu.LastLowArg,
+		h:         d.cpu.LastHighArg,
+		registers: registers,
 	}
 	d.insBuffer = d.insBuffer.Next()
 }
@@ -249,25 +255,21 @@ func (d *Debugger) updateInsWindow(g *gocui.Gui) error {
 
 		b := v.(instruction)
 
-		var ins cpu.Instruction
-		var ok bool
+		ins := cpu.Decode(b.opcode, b.cb)
+		if !ins.Valid() {
+			return
+		}
 
-		if b.cb {
-			ins, ok = cpu.Instructions[b.opcode]
-			if !ok {
-				return
-			}
-		} else {
-			ins, ok = cpu.CBInstructions[b.opcode]
-			if !ok {
-				return
-			}
+		var registers cpu.Registers
+		if err := registers.UnmarshalBinary(b.registers); err != nil {
+			return
 		}
 
 		fmt.Fprintf(
 			view,
-			"%-22s\n",
+			"%-22s %s\n",
 			ins.String(b.l, b.h),
+			registers.String(),
 		)
 	})
 
