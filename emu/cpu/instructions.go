@@ -219,7 +219,7 @@ var instructionsMap = map[byte]Instruction{
 	0xE9: {1, 4, "JP (HL)", i_jp_hl}, // weird mnemonic, we go to HL, not (HL)
 
 	0xC9: {1, 8, "RET", i_ret},
-	0xD9: {1, 16, "RETI", i_reti},
+	0xD9: {1, 8, "RETI", i_reti},
 	0xC0: {1, 8, "RET Z", i_ret_z},
 	0xC8: {1, 8, "RET NZ", i_ret_nz},
 
