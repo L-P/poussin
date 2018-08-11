@@ -1,6 +1,6 @@
 package gl
 
-var shaderDefaultVert = `
+const shaderDefaultVert = `
 #version 430 core
 
 layout (location = 0) in vec2 inPos;
@@ -17,7 +17,7 @@ void main() {
 }
 `
 
-var shaderDefaultFrag = `
+const shaderDefaultFrag = `
 #version 430 core
 
 out vec4 outFragColor;

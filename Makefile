@@ -5,7 +5,7 @@ poussin:
 
 .PHONY: poussin run pprof
 run: poussin
-	./poussin boot.gb rom.gb
+	./poussin boot.gb rom.gb  2> stderr
 
 pprof: poussin
 	./poussin -cpuprofile cpu.pprof boot.gb rom.gb

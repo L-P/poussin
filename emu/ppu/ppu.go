@@ -1,7 +1,6 @@
 package ppu
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 )
@@ -57,6 +56,7 @@ func New(nextFrame chan<- *image.RGBA) *PPU {
 
 // Runs the PPU for one cycle
 func (p *PPU) Cycle() {
+	p.Draw()
 	p.Cycles = (p.Cycles + 1) % 456
 	p.InterruptVBlank = false
 
@@ -100,157 +100,9 @@ func (p *PPU) Cycle() {
 	}
 }
 
-// Bits 0-1 of the STAT register are the mode
-const (
-	ModeHBlank   = byte(0x00)
-	ModeVBlank   = 0x01
-	ModeOAM      = 0x02
-	ModeTransfer = 0x03
-)
-
-func (p *PPU) GetMode() byte {
-	return p.STAT & 0x03
-}
-
-func (p *PPU) SetSTATMode(mode byte) {
-	p.STAT = (p.STAT & 0xFC) | mode
-}
-
-func (p *PPU) SetSTATLYC(on bool) {
-	if on {
-		p.STAT |= 1 << 6
-	} else {
-		p.STAT &= ^uint8(1 << 6)
-	}
-}
-
-// Returns true if the address is in the range of the PPU registers
-func IsPPUIO(addr uint16) bool {
-	return addr >= 0xFF40 && addr <= 0xFF4B
-}
-
-// Returns true if the address is in the range of VRAM
-func IsVRAM(addr uint16) bool {
-	return addr >= 0x8000 && addr <= 0x9FFF
-}
-
-func (p *PPU) FetchVRAM(addr uint16) byte {
-	if !IsVRAM(addr) {
-		panic(fmt.Errorf("PPU VRAM fetch outside of 0x800-0x9FFF: %02X", addr))
-	}
-
-	return p.VRAM[addr-0x8000]
-}
-
-func (p *PPU) WriteVRAM(addr uint16, b byte) {
-	if !IsVRAM(addr) {
-		panic(fmt.Errorf("PPU VRAM write outside of 0x800-0x9FFF: %02X", addr))
-	}
-
-	p.VRAM[addr-0x8000] = b
-}
-
-func (p *PPU) Fetch(addr uint16) byte {
-	if IsPPUIO(addr) {
-		return p.FetchRegister(addr)
-	}
-
-	return p.FetchVRAM(addr)
-}
-
-func (p *PPU) Write(addr uint16, b byte) {
-	if IsPPUIO(addr) {
-		p.WriteRegister(addr, b)
-		return
-	}
-
-	p.WriteVRAM(addr, b)
-}
-
-// Reads a byte from the registers
-func (p *PPU) FetchRegister(addr uint16) byte {
-	switch addr {
-	case 0xFF40:
-		return p.LCDC
-	case 0xFF41:
-		return p.STAT
-	case 0xFF42:
-		return p.SCY
-	case 0xFF43:
-		return p.SCX
-	case 0xFF44:
-		return p.LY
-	case 0xFF45:
-		return p.LYC
-	case 0xFF46:
-		return p.DMA
-	case 0xFF47:
-		return p.BGP
-	case 0xFF48:
-		return p.OBP0
-	case 0xFF49:
-		return p.OBP1
-	case 0xFF4A:
-		return p.WY
-	case 0xFF4B:
-		return p.WX
-	}
-
-	// This is not an emulation problem, somone dun' goofed.
-	panic(fmt.Errorf("PPU register fetch outside of 0xFF40-0xFF4B: %02X", addr))
-}
-
-func (p *PPU) WriteRegister(addr uint16, b byte) {
-	if !IsPPUIO(addr) {
-		// This is not an emulation problem, somone dun' goofed.
-		panic(fmt.Errorf("PPU register write outside of 0xFF40-0xFF4B: %02X", addr))
-	}
-
-	switch addr {
-	case 0xFF40:
-		p.LCDC = b
-	case 0xFF41:
-		p.STAT = (b & 0x78) | p.STAT // mask 0b01111000
-	case 0xFF42:
-		p.SCY = b
-	case 0xFF43:
-		p.SCX = b
-	case 0xFF44:
-		p.LY = 0
-	case 0xFF45:
-		p.LYC = b
-	case 0xFF46:
-		p.DMA = b
-	case 0xFF47:
-		p.BGP = b
-	case 0xFF48:
-		p.OBP0 = b
-	case 0xFF49:
-		p.OBP1 = b
-	case 0xFF4A:
-		p.WY = b
-	case 0xFF4B:
-		p.WX = b
-	}
-}
-
 // SendFrame sends a frame to the renderer
 func (p *PPU) SendFrame() {
-	// HACK TODO: writing raw VRAM to FB so we have a debug output
-	fb := p.BackBuffer()
-	for i := 0; i < len(p.VRAM); i += 8 {
-		for j := byte(0); j < 8; j++ {
-			x := (i + int(j)) % DotMatrixWidth
-			y := (i + int(j)) / DotMatrixWidth
-
-			if (p.VRAM[i] & (1 << j)) > 0 {
-				fb.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
-			} else {
-				fb.SetRGBA(x, y, color.RGBA{0, 0, 0, 255})
-			}
-		}
-
-	}
+	// p.DrawBackground()
 
 	// Send the current back buffer and promote it to front
 	// HACK: This call is blocking, thus ensuring we don't run the emulation
@@ -258,10 +110,95 @@ func (p *PPU) SendFrame() {
 	// ie. my monitor and graphics card run at 60hz with vsync enabled so
 	// this line is the actual simulation speed regulator
 	p.NextFrame <- p.Buffers[p.BackBufferIndex]
+
 	p.PushedFrames++
 	p.BackBufferIndex = (p.BackBufferIndex + 1) % 2
 }
 
 func (p *PPU) BackBuffer() *image.RGBA {
 	return p.Buffers[p.BackBufferIndex]
+}
+
+func (p *PPU) DrawBackground() {
+	fp := p.BackBuffer()
+
+	for x := 0; x < 256; x++ {
+		for y := 0; y < 256; y++ {
+			dataAddr := p.GetTileDataAddress(byte(x), byte(y))
+			tileData := p.GetTileData(dataAddr, byte(x), byte(y))
+
+			c := p.Colorize(p.Palettize(tileData))
+
+			fp.SetRGBA(int(x), int(y), color.RGBA{c, c, c, 255})
+		}
+	}
+}
+
+func (p *PPU) Draw() {
+	lcdX := byte(p.Cycles / 2)
+	lcdY := p.LY
+	if lcdY > DotMatrixHeight || lcdX > DotMatrixWidth {
+		return
+	}
+
+	x := (lcdX + p.SCX) % DotMatrixWidth
+	y := (lcdY + p.SCY) % DotMatrixHeight
+
+	dataAddr := p.GetTileDataAddress(x, y)
+	tileData := p.GetTileData(dataAddr, x, y)
+
+	c := p.Colorize(p.Palettize(tileData))
+
+	p.BackBuffer().SetRGBA(int(x), int(y), color.RGBA{c, c, c, 255})
+}
+
+func (p *PPU) Colorize(b byte) byte {
+	switch b {
+	case 0x00:
+		return 0xFF
+	case 0x01:
+		return 0xC0
+	case 0x02:
+		return 0x40
+	case 0x03:
+		return 0x00
+	}
+
+	panic("trying to color byte > 3")
+}
+
+func (p *PPU) Palettize(b byte) byte {
+	switch b {
+	case 0x00:
+		return p.BGP & 0x03
+	case 0x01:
+		return (p.BGP & 0x0C) >> 2
+	case 0x02:
+		return (p.BGP & 0x30) >> 4
+	case 0x03:
+		return (p.BGP & 0xC0) >> 6
+	}
+
+	panic("trying to palette byte > 3")
+}
+
+// Returns the adress of the tile data for pixel at x,y
+func (p *PPU) GetTileDataAddress(x, y byte) uint16 {
+	mapOffset, _ := p.GetBGTileMapRange()
+	tileX, tileY := uint16(x/8), uint16(y/8)
+	tileID := p.FetchVRAM(mapOffset + tileX + (tileY * 8))
+
+	dataOffset, _ := p.GetBGWindowTileDataRange()
+	addr := dataOffset + uint16(tileID)
+
+	return addr
+}
+
+// Returns the tile data for pixel x,y of tile at address addr
+func (p *PPU) GetTileData(addr uint16, x, y byte) byte {
+	dX, dY := byte(x%8), byte(y%8)
+	b := p.FetchVRAM(addr + uint16(dY))
+
+	mask := byte((1 << dX) | (1 << (dX + 1)))
+	return (b & mask) >> dX
 }

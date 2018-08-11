@@ -13,6 +13,19 @@ func rotateLeftWithCarry(v byte, carry bool) (byte, bool) {
 	return (v << 1) | oldCarry, newCarry
 }
 
+// Rotates a byte to the right using a carry as the 9th bit, returns the new
+// carry bit state.
+func rotateRightWithCarry(v byte, carry bool) (byte, bool) {
+	oldCarry := uint8(0)
+	if carry {
+		oldCarry = uint8(1)
+	}
+
+	newCarry := v&0x01 == 0x01
+
+	return (v >> 1) | (oldCarry << 7), newCarry
+}
+
 // Returns decremented byte and half carry flag
 func decrement(v byte) (byte, bool) {
 	return v - 1, (v & 0xF) == 0x00

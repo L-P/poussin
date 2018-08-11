@@ -1,13 +1,19 @@
 package cpu
 
+import "fmt"
+
 var instructionsMap = map[byte]Instruction{
 	0x00: {1, 4, "NOP", i_nop},
+	0x10: {2, 4, "STOP %02X", i_stop},
+	0x08: {3, 20, "LD (%02X%02X),SP", i_ld_8d_sp},
 
 	0xF3: {1, 4, "DI", i_set_interrupt(false)},
 	0xFB: {1, 4, "EI", i_set_interrupt(true)},
 
 	0x2F: {1, 4, "CPL", i_cpl},
 	0x07: {1, 4, "RLCA", i_cb_rlc_n('A')},
+	0x1F: {1, 4, "RRA", i_cb_rr_n('A')},
+	0x27: {1, 4, "DAA", i_daa},
 
 	0x3C: {1, 4, "INC A", i_inc_a},
 	0x04: {1, 4, "INC B", i_inc_n('B')},
@@ -56,6 +62,7 @@ var instructionsMap = map[byte]Instruction{
 
 	0x86: {1, 8, "ADD A,(HL)", i_add_a_phl},
 	0xC6: {2, 8, "ADD A,(%02X)", i_add_a_d8},
+	0xCE: {2, 8, "ADC A,(%02X)", i_adc_a_d8},
 
 	0x09: {1, 8, "ADD HL,BC", i_add_hl_nn("BC")},
 	0x19: {1, 8, "ADD HL,DE", i_add_hl_nn("DE")},
@@ -97,6 +104,8 @@ var instructionsMap = map[byte]Instruction{
 
 	0xE6: {2, 8, "AND $%02X", i_and},
 	0xEE: {2, 8, "XOR $%02X", i_xor},
+	0xAE: {1, 8, "XOR (HL)", i_xor_hl},
+	0xB6: {1, 8, "OR (HL)", i_or_hl},
 	0xF6: {2, 8, "OR $%02X", i_or},
 
 	0x17: {1, 4, "RLA", i_rla},
@@ -184,35 +193,45 @@ var instructionsMap = map[byte]Instruction{
 	0x21: {3, 12, "LD HL,$%02X%02X", i_ld_nn("HL")},
 	0x31: {3, 12, "LD SP,$%02X%02X", i_ld_nn("SP")},
 
+	0xF9: {1, 8, "LD SP,HL", i_ld_sp_hl},
+
 	0xE2: {1, 8, "LD (C),A", i_ld_pc_a},
 	0xEA: {3, 16, "LD ($%02X%02X),A", i_ld_pn_a},
 
-	0x02: {1, 8, "LD (BC),A", i_ld_pnn_a("BC")},
-	0x12: {1, 8, "LD (DE),A", i_ld_pnn_a("DE")},
-	0x77: {1, 8, "LD (HL),A", i_ld_pnn_a("HL")},
+	0x02: {1, 8, "LD (BC),A", i_ld_pnn_n("BC", 'A')},
+	0x12: {1, 8, "LD (DE),A", i_ld_pnn_n("DE", 'A')},
+	0x77: {1, 8, "LD (HL),A", i_ld_pnn_n("HL", 'A')},
 
-	0x36: {2, 12, "LD (HL),%02X", i_ld_phl_n},
+	0x70: {1, 8, "LD (HL),B", i_ld_pnn_n("HL", 'B')},
+	0x71: {1, 8, "LD (HL),C", i_ld_pnn_n("HL", 'C')},
+	0x72: {1, 8, "LD (HL),D", i_ld_pnn_n("HL", 'D')},
+	0x73: {1, 8, "LD (HL),E", i_ld_pnn_n("HL", 'E')},
+	0x74: {1, 8, "LD (HL),H", i_ld_pnn_n("HL", 'H')},
+	0x75: {1, 8, "LD (HL),L", i_ld_pnn_n("HL", 'L')},
 
 	0x22: {1, 8, "LDI (HL),A", i_ldi_phl_a},
 	0x32: {1, 8, "LDD (HL),A", i_ldd_phl_a},
-
+	0x36: {2, 12, "LD (HL),%02X", i_ld_phl_n},
 	0xE0: {2, 12, "LDH ($%02X),A", i_ldh_pn_a},
 	0xF0: {2, 12, "LDH A,($%02X)", i_ldh_a_pn},
+	0xF8: {2, 12, "LDHL SP,$%02X", i_ldhl_sp_8b},
 
 	0xBE: {1, 8, "CP (HL)", i_cp_phl},
 	0xFE: {2, 8, "CP $%02X", i_cp_8b},
 
-	0xB8: {2, 4, "CP B", i_cp_n('B')},
-	0xB9: {2, 4, "CP C", i_cp_n('C')},
-	0xBA: {2, 4, "CP D", i_cp_n('D')},
-	0xBB: {2, 4, "CP E", i_cp_n('E')},
-	0xBC: {2, 4, "CP H", i_cp_n('H')},
-	0xBD: {2, 4, "CP L", i_cp_n('L')},
-	0xBF: {2, 4, "CP A", i_cp_n('A')},
+	0xB8: {1, 4, "CP B", i_cp_n('B')},
+	0xB9: {1, 4, "CP C", i_cp_n('C')},
+	0xBA: {1, 4, "CP D", i_cp_n('D')},
+	0xBB: {1, 4, "CP E", i_cp_n('E')},
+	0xBC: {1, 4, "CP H", i_cp_n('H')},
+	0xBD: {1, 4, "CP L", i_cp_n('L')},
+	0xBF: {1, 4, "CP A", i_cp_n('A')},
 
 	0x18: {2, 8, "JR $%02X", i_jr},
-	0x28: {2, 8, "JR Z,$%02X", i_jr_z},
 	0x20: {2, 8, "JR NZ,$%02X", i_jr_nz},
+	0x28: {2, 8, "JR Z,$%02X", i_jr_z},
+	0x30: {2, 8, "JR NC,$%02X", i_jr_nc},
+	0x38: {2, 8, "JR C,$%02X", i_jr_c},
 
 	0xC3: {3, 12, "JP $%02X%02X", i_jp_nn},
 	0xCA: {3, 12, "JP Z,$%02X%02X", i_jp_z},
@@ -223,6 +242,8 @@ var instructionsMap = map[byte]Instruction{
 	0xD9: {1, 8, "RETI", i_reti},
 	0xC0: {1, 8, "RET Z", i_ret_z},
 	0xC8: {1, 8, "RET NZ", i_ret_nz},
+	0xD0: {1, 8, "RET C", i_ret_c},
+	0xD8: {1, 8, "RET NC", i_ret_nc},
 
 	0xC5: {1, 16, "PUSH BC", i_push_nn("BC")},
 	0xD5: {1, 16, "PUSH DE", i_push_nn("DE")},
@@ -262,6 +283,14 @@ func init() {
 }
 
 func i_nop(*CPU, byte, byte) {}
+
+func i_stop(c *CPU, l, _ byte) {
+	if l != 0x00 {
+		panic(fmt.Errorf("invalid stop: %02X", l))
+	}
+
+	// c.Stopped = true
+}
 
 // Substracts value of n from A
 func i_sub_n(name byte) InstructionImplementation {
@@ -437,10 +466,11 @@ func i_ldi_phl_a(c *CPU, _, _ byte) {
 }
 
 // Puts A into address pointed by nn
-func i_ld_pnn_a(name string) InstructionImplementation {
+func i_ld_pnn_n(dest string, src byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
-		r := c.GetRegisterAddress(name)
-		c.Write(*r, c.A)
+		r := c.GetRegisterAddress(dest)
+		get, _ := c.GetRegisterCallbacks(src)
+		c.Write(*r, get())
 	}
 }
 
@@ -475,6 +505,20 @@ func i_and(c *CPU, l, _ byte) {
 // Performs a logical XOR against A and l
 func i_xor(c *CPU, l, _ byte) {
 	c.A ^= l
+	c.ClearFlags()
+	c.FlagZero = c.A == 0
+}
+
+// Performs a logical XOR against A and the byte at (HL)
+func i_xor_hl(c *CPU, _, _ byte) {
+	c.A ^= c.Fetch(c.HL)
+	c.ClearFlags()
+	c.FlagZero = c.A == 0
+}
+
+// Performs a logical OR against A and the byte at (HL)
+func i_or_hl(c *CPU, _, _ byte) {
+	c.A |= c.Fetch(c.HL)
 	c.ClearFlags()
 	c.FlagZero = c.A == 0
 }
@@ -576,6 +620,20 @@ func i_ret_nz(c *CPU, _, _ byte) {
 	}
 }
 
+// Pops a two bytes address stack and jump to it if C is set
+func i_ret_c(c *CPU, _, _ byte) {
+	if c.FlagCarry {
+		c.PC = c.StackPop16b()
+	}
+}
+
+// Pops a two bytes address stack and jump to it if C is not set
+func i_ret_nc(c *CPU, _, _ byte) {
+	if !c.FlagCarry {
+		c.PC = c.StackPop16b()
+	}
+}
+
 // Pushes a two-byte register to the stack
 func i_push_nn(name string) InstructionImplementation {
 	return func(c *CPU, l, h byte) {
@@ -645,9 +703,23 @@ func i_jr_nz(c *CPU, l, _ byte) {
 	}
 }
 
+// Jumps to signed addr offset if C flag is not set
+func i_jr_nc(c *CPU, l, _ byte) {
+	if !c.FlagCarry {
+		c.PC = signedOffset(c.PC, l)
+	}
+}
+
 // Jumps to signed addr offset if Z is set
 func i_jr_z(c *CPU, l, _ byte) {
 	if c.FlagZero {
+		c.PC = signedOffset(c.PC, l)
+	}
+}
+
+// Jumps to signed addr offset if C is set
+func i_jr_c(c *CPU, l, _ byte) {
+	if c.FlagCarry {
 		c.PC = signedOffset(c.PC, l)
 	}
 }
@@ -709,7 +781,10 @@ func i_adc_a_n(name byte) InstructionImplementation {
 		get, _ := c.GetRegisterCallbacks(name)
 
 		old := c.A
-		add := get() + 1
+		add := get()
+		if c.FlagCarry {
+			add += 1
+		}
 
 		c.A += add
 		c.FlagZero = c.A == 0
@@ -717,6 +792,21 @@ func i_adc_a_n(name byte) InstructionImplementation {
 		c.FlagHalfCarry = (((old & 0xF) + (add & 0xF)) & 0x10) > 0
 		c.FlagCarry = c.A < old
 	}
+}
+
+// Adds the value l to A + 1 if the carry flag is set
+func i_adc_a_d8(c *CPU, l, _ byte) {
+	old := c.A
+	add := l
+	if c.FlagCarry {
+		add += 1
+	}
+
+	c.A += add
+	c.FlagZero = c.A == 0
+	c.FlagSubstract = false
+	c.FlagHalfCarry = (((old & 0xF) + (add & 0xF)) & 0x10) > 0
+	c.FlagCarry = c.A < old
 }
 
 // Adds the value at *HL to A
@@ -800,4 +890,53 @@ func i_add_hl_nn(name string) InstructionImplementation {
 		c.FlagCarry = c.HL < old
 		// TODO c.HalfCarry
 	}
+}
+
+// Loads SP + l into HL
+func i_ldhl_sp_8b(c *CPU, l, _ byte) {
+	c.HL = signedOffset(c.SP, l)
+}
+
+// Decimal adjust register A
+func i_daa(c *CPU, _, _ byte) {
+	a := uint16(c.A)
+
+	if !c.FlagSubstract {
+		if c.FlagHalfCarry || (a&0xF) > 9 {
+			a += 0x06
+		}
+
+		if c.FlagCarry || a > 0x9F {
+			a += 0x60
+		}
+	} else {
+		if c.FlagHalfCarry {
+			a = (a - 6) & 0xFF
+		}
+
+		if c.FlagCarry {
+			a -= 0x60
+		}
+	}
+
+	c.FlagHalfCarry = false
+	if (a & 0x100) == 0x100 {
+		c.FlagCarry = true
+	}
+
+	a &= 0xFF
+	c.FlagZero = a == 0
+	c.A = byte(a)
+}
+
+// Loads HL into SP
+func i_ld_sp_hl(c *CPU, _, _ byte) {
+	c.SP = c.HL
+}
+
+// Loads SP value into given address
+func i_ld_8d_sp(c *CPU, l, h byte) {
+	addr := uint16(l) | (uint16(h) << 8)
+	c.Write(addr, byte(c.SP&0x00FF))
+	c.Write(addr+1, byte(c.SP&0xFF00)>>8)
 }

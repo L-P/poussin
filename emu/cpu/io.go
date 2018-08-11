@@ -1,6 +1,9 @@
 package cpu
 
 import (
+	"fmt"
+	"os"
+
 	"home.leo-peltier.fr/poussin/emu/ppu"
 )
 
@@ -73,6 +76,9 @@ func (c *CPU) WriteIO(addr uint16, value byte) {
 	switch addr {
 	case IODIV:
 		c.Mem[IODIV] = 0
+		return
+	case IOSB:
+		fmt.Fprintf(os.Stderr, "%c", rune(value))
 		return
 	case IODisableBootROM:
 		c.Mem[IODisableBootROM] = 1 // Boot ROM can never be re-enabled

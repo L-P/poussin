@@ -17,6 +17,9 @@ type CPU struct {
 
 	PPU *ppu.PPU
 
+	// Set by the STOP instruction, reset by interrupts
+	Stopped bool
+
 	// For debugging purposes
 	LastOpcode      byte
 	LastOpcodeWasCB bool
@@ -55,8 +58,15 @@ func (c *CPU) Step() (int, error) {
 	if cycles := c.CheckInterrupts(); cycles > 0 {
 		c.InterruptMaster = false
 		c.Cycle += cycles
+		c.Stopped = false
 		c.UpdateTimer()
 		return cycles, nil
+	}
+
+	if c.Stopped {
+		c.Cycle += 4
+		c.UpdateTimer()
+		return 4, nil
 	}
 
 	c.UpdateTimer()

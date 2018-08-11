@@ -11,6 +11,14 @@ var cbInstructionsMap = map[byte]Instruction{
 	0x05: {1, 4, "RLC L", i_cb_rlc_n('L')},
 	0x07: {1, 4, "RLC A", i_cb_rlc_n('A')},
 
+	0x3F: {1, 4, "SRL A", i_cb_srl_n('A')},
+	0x38: {1, 4, "SRL B", i_cb_srl_n('B')},
+	0x39: {1, 4, "SRL C", i_cb_srl_n('C')},
+	0x3A: {1, 4, "SRL D", i_cb_srl_n('D')},
+	0x3B: {1, 4, "SRL E", i_cb_srl_n('E')},
+	0x3C: {1, 4, "SRL H", i_cb_srl_n('H')},
+	0x3D: {1, 4, "SRL L", i_cb_srl_n('L')},
+
 	0x10: {1, 4, "RL B", i_cb_rl_n('B')},
 	0x11: {1, 4, "RL C", i_cb_rl_n('C')},
 	0x12: {1, 4, "RL D", i_cb_rl_n('D')},
@@ -18,6 +26,14 @@ var cbInstructionsMap = map[byte]Instruction{
 	0x14: {1, 4, "RL H", i_cb_rl_n('H')},
 	0x15: {1, 4, "RL L", i_cb_rl_n('L')},
 	0x17: {1, 4, "RL A", i_cb_rl_n('A')},
+
+	0x18: {1, 4, "RR B", i_cb_rr_n('B')},
+	0x19: {1, 4, "RR C", i_cb_rr_n('C')},
+	0x1A: {1, 4, "RR D", i_cb_rr_n('D')},
+	0x1B: {1, 4, "RR E", i_cb_rr_n('E')},
+	0x1C: {1, 4, "RR H", i_cb_rr_n('H')},
+	0x1D: {1, 4, "RR L", i_cb_rr_n('L')},
+	0x1F: {1, 4, "RR A", i_cb_rr_n('A')},
 
 	0x27: {1, 4, "SLA A", i_cb_sla_n('A')},
 	0x20: {1, 4, "SLA B", i_cb_sla_n('B')},
@@ -231,6 +247,36 @@ func i_cb_rl_n(name byte) InstructionImplementation {
 		get, set := c.GetRegisterCallbacks(name)
 		var b byte
 		b, c.FlagCarry = rotateLeftWithCarry(get(), c.FlagCarry)
+
+		set(b)
+		c.FlagZero = b == 0
+		c.FlagSubstract = false
+		c.FlagHalfCarry = false
+	}
+}
+
+// Rotates n right through Carry flag
+func i_cb_rr_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, set := c.GetRegisterCallbacks(name)
+		var b byte
+		b, c.FlagCarry = rotateRightWithCarry(get(), c.FlagCarry)
+
+		set(b)
+		c.FlagZero = b == 0
+		c.FlagSubstract = false
+		c.FlagHalfCarry = false
+	}
+}
+
+// Shifts n right into Carry. MSB set to 0.
+func i_cb_srl_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, set := c.GetRegisterCallbacks(name)
+		b := get()
+
+		c.FlagCarry = b&0x01 == 0x01
+		b = b >> 1
 
 		set(b)
 		c.FlagZero = b == 0

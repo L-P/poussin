@@ -11,13 +11,13 @@ import (
 func LoadProgram(vert, frag string) (uint32, error) {
 	vertShader, err := compileShader(vert, gl.VERTEX_SHADER)
 	if err != nil {
-		return 0, fmt.Errorf("could not compile vertex shader: %s", err)
+		return 0, fmt.Errorf("could not compile vertex shader: %s\n%s", err, vert)
 	}
 	defer gl.DeleteShader(vertShader)
 
 	fragShader, err := compileShader(frag, gl.FRAGMENT_SHADER)
 	if err != nil {
-		return 0, fmt.Errorf("could not compile fragment shader: %s", err)
+		return 0, fmt.Errorf("could not compile fragment shader: %s\n%s", err, frag)
 	}
 	defer gl.DeleteShader(fragShader)
 
