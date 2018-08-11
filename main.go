@@ -15,6 +15,8 @@ import (
 )
 
 func main() {
+	log.SetOutput(os.Stderr)
+
 	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 	var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
 	flag.Parse()
@@ -30,7 +32,9 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	run()
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
 
 	if *memprofile != "" {
 		f, err := os.Create(*memprofile)
@@ -45,7 +49,7 @@ func main() {
 	}
 }
 
-func run() {
+func run() error {
 
 	if len(flag.Args()) != 2 {
 		fmt.Println("Usage: poussin [-cpuprofile FILE] [-memprofile FILE] BOOTROM ROM")
@@ -53,23 +57,26 @@ func run() {
 	}
 
 	nextFrame := make(chan *image.RGBA, 1)
-	gb := emu.NewGameboy(nextFrame)
+	gb, err := emu.NewGameboy(nextFrame)
+	if err != nil {
+		return err
+	}
 	defer gb.Close()
 
 	bootRom, err := ioutil.ReadFile(flag.Args()[0])
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if err := gb.LoadBootROM(bootRom); err != nil {
-		panic(err)
+		return err
 	}
 
 	rom, err := ioutil.ReadFile(flag.Args()[1])
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if err := gb.LoadROM(rom); err != nil {
-		panic(err)
+		return err
 	}
 
 	quit := make(chan bool)
@@ -80,4 +87,6 @@ func run() {
 	case <-quit:
 	}
 	close(quit)
+
+	return nil
 }

@@ -938,5 +938,5 @@ func i_ld_sp_hl(c *CPU, _, _ byte) {
 func i_ld_8d_sp(c *CPU, l, h byte) {
 	addr := uint16(l) | (uint16(h) << 8)
 	c.Write(addr, byte(c.SP&0x00FF))
-	c.Write(addr+1, byte(c.SP&0xFF00)>>8)
+	c.Write(addr+1, byte(c.SP&0xFF00>>8))
 }

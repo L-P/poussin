@@ -2,4 +2,6 @@
 /*.gb
 /*.pprof
 /poussin
+/roms
 /run
+/stderr

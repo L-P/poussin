@@ -12,17 +12,23 @@ type Gameboy struct {
 	cpu cpu.CPU
 	ppu *ppu.PPU
 
-	debugger debugger.Debugger
+	debugger *debugger.Debugger
 }
 
-func NewGameboy(nextFrame chan<- *image.RGBA) *Gameboy {
+func NewGameboy(nextFrame chan<- *image.RGBA) (*Gameboy, error) {
 	gb := Gameboy{
 		ppu: ppu.New(nextFrame),
 	}
-	gb.cpu = cpu.New(gb.ppu)
-	gb.debugger = debugger.New(&gb.cpu, gb.ppu)
 
-	return &gb
+	gb.cpu = cpu.New(gb.ppu)
+
+	var err error
+	gb.debugger, err = debugger.New(&gb.cpu, gb.ppu)
+	if err != nil {
+		return nil, err
+	}
+
+	return &gb, nil
 }
 
 func (g *Gameboy) LoadBootROM(rom []byte) error {
@@ -34,7 +40,7 @@ func (g *Gameboy) LoadROM(rom []byte) error {
 }
 
 func (g *Gameboy) Run(quit chan bool) {
-	go g.debugger.Run(quit)
+	go g.debugger.RunGUI(quit)
 
 	for true {
 		cycles, err := g.cpu.Step()
@@ -51,7 +57,6 @@ func (g *Gameboy) Run(quit chan bool) {
 			case <-quit:
 				return
 			}
-			return
 		}
 
 		select {
