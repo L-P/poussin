@@ -180,7 +180,7 @@ func ReadFromArray(a []byte, i int) Registers {
 		A:  a[i+0],
 		BC: (uint16(a[i+2]) << 8) | uint16(a[i+3]),
 		DE: (uint16(a[i+4]) << 8) | uint16(a[i+5]),
-		HL: (uint16(a[i+6]) << 8) | uint16(a[i+6]),
+		HL: (uint16(a[i+6]) << 8) | uint16(a[i+7]),
 		PC: (uint16(a[i+8]) << 8) | uint16(a[i+9]),
 		SP: (uint16(a[i+10]) << 8) | uint16(a[i+11]),
 	}
