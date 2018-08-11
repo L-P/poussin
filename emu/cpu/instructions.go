@@ -62,6 +62,7 @@ var instructionsMap = map[byte]Instruction{
 	0x29: {1, 8, "ADD HL,HL", i_add_hl_nn("HL")},
 	0x39: {1, 8, "ADD HL,SP", i_add_hl_nn("SP")},
 
+	0xD6: {2, 8, "SUB %02X", i_sub_d8},
 	0x97: {1, 4, "SUB A", i_sub_n('A')},
 	0x90: {1, 4, "SUB B", i_sub_n('B')},
 	0x91: {1, 4, "SUB C", i_sub_n('C')},
@@ -235,6 +236,8 @@ var instructionsMap = map[byte]Instruction{
 
 	0xCB: {1, 4, "PREFIX CB", i_prefix_cb},
 	0xCD: {3, 24, "CALL $%02X%02X", i_call},
+	0xC4: {3, 24, "CALL NZ,$%02X%02X", i_call_nz},
+	0xCC: {3, 24, "CALL Z,$%02X%02X", i_call_z},
 
 	0xC7: {1, 16, "RST,$00", i_rst(0x00)},
 	0xCF: {1, 16, "RST,$08", i_rst(0x08)},
@@ -260,6 +263,7 @@ func init() {
 
 func i_nop(*CPU, byte, byte) {}
 
+// Substracts value of n from A
 func i_sub_n(name byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
 		get, _ := c.GetRegisterCallbacks(name)
@@ -273,6 +277,18 @@ func i_sub_n(name byte) InstructionImplementation {
 		c.FlagZero = b == 0
 		c.FlagSubstract = true
 	}
+}
+
+// Substracts l from A
+func i_sub_d8(c *CPU, l, _ byte) {
+	b := c.A - l
+
+	c.FlagHalfCarry = (c.A & 0xF) < (l & 0xF)
+	c.FlagCarry = b > c.A
+
+	c.A = b
+	c.FlagZero = b == 0
+	c.FlagSubstract = true
 }
 
 // Increments register B
@@ -511,6 +527,26 @@ func i_prefix_cb(c *CPU, _, _ byte) {
 
 // Pushes the address of the next instruction onto the stack and jump
 func i_call(c *CPU, l, h byte) {
+	c.StackPush16b(c.PC)
+	c.PC = (uint16(h) << 8) | uint16(l)
+}
+
+// If Z is not set, pushes the address of the next instruction onto the stack and jump
+func i_call_nz(c *CPU, l, h byte) {
+	if c.FlagZero {
+		return
+	}
+
+	c.StackPush16b(c.PC)
+	c.PC = (uint16(h) << 8) | uint16(l)
+}
+
+// If Z is set, pushes the address of the next instruction onto the stack and jump
+func i_call_z(c *CPU, l, h byte) {
+	if !c.FlagZero {
+		return
+	}
+
 	c.StackPush16b(c.PC)
 	c.PC = (uint16(h) << 8) | uint16(l)
 }
