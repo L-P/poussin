@@ -18,7 +18,7 @@ type PPU struct {
 	Cycles int
 
 	// True right _after_ the cycle that got to VBlank ran
-	VBlank bool
+	InterruptVBlank bool
 
 	Buffers         [2]*image.RGBA
 	BackBufferIndex int
@@ -58,7 +58,7 @@ func New(nextFrame chan<- *image.RGBA) *PPU {
 // Runs the PPU for one cycle
 func (p *PPU) Cycle() {
 	p.Cycles = (p.Cycles + 1) % 456
-	p.VBlank = false
+	p.InterruptVBlank = false
 
 	if p.Cycles == 0 {
 		p.LY = (p.LY + 1) % 154
@@ -80,7 +80,7 @@ func (p *PPU) Cycle() {
 
 		if p.Cycles >= 4 {
 			if p.Cycles == 4 {
-				p.VBlank = true
+				p.InterruptVBlank = true
 				p.SendFrame()
 				p.SetSTATLYC(p.LY == p.LYC)
 			}

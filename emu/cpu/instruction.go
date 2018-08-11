@@ -30,7 +30,7 @@ func (i Instruction) String(l, h byte) string {
 }
 
 func (i Instruction) Valid() bool {
-	return i.Cycles > 0
+	return i.Cycles > 0 && (i.Cycles%4 == 0)
 }
 
 func Decode(opcode byte, cb bool) Instruction {

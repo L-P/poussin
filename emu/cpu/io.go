@@ -8,7 +8,11 @@ const (
 	IOP1 = 0xFF00 // P1 Joypad (R/W)
 	IOSB = 0xFF01 // Serial transfer data
 
-	IODIV            = 0xFF04 // Divider Register (R/W*)
+	IODIV  = 0xFF04 // Divider register (R/W*)
+	IOTIMA = 0xFF05 // Timer counter (R/W)
+	IOTMA  = 0xFF06 // Timer modulo (R/W)
+	IOTAC  = 0xFF07 // TImer control (R/W)
+
 	IODisableBootROM = 0xFF50
 	IOIF             = 0xFF0F // Interrupt flag
 
@@ -67,8 +71,11 @@ func (c *CPU) WriteIO(addr uint16, value byte) {
 	}
 
 	switch addr {
+	case IODIV:
+		c.Mem[IODIV] = 0
+		return
 	case IODisableBootROM:
-		c.Mem[addr] = 1 // Boot ROM can never be re-enabled
+		c.Mem[IODisableBootROM] = 1 // Boot ROM can never be re-enabled
 		return
 	case IOIF:
 		c.WriteIF(value)

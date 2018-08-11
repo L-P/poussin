@@ -25,6 +25,7 @@ type CPU struct {
 
 	// Adressable at 0xFFFF
 	InterruptEnable byte
+	InterruptTimer  bool
 
 	// Interrupt Master Flag, not addressable
 	InterruptMaster bool
@@ -33,7 +34,15 @@ type CPU struct {
 	// itself, when this flag is set it means the next opcode we read will be
 	// from the CB opcodes
 	NextOpcodeIsCB bool
-	Cycle          int
+
+	// Current clock cycle number
+	Cycle int
+
+	// On which cycle we last updated the timer registers
+	LastTimerUpdateCycle int
+
+	// TIMA overflowed on last cycle
+	TimerOverflow bool
 }
 
 func New(ppu *ppu.PPU) CPU {
@@ -46,8 +55,11 @@ func (c *CPU) Step() (int, error) {
 	if cycles := c.CheckInterrupts(); cycles > 0 {
 		c.InterruptMaster = false
 		c.Cycle += cycles
+		c.UpdateTimer()
 		return cycles, nil
 	}
+
+	c.UpdateTimer()
 
 	opcode := c.Fetch(c.PC)
 	cb := c.NextOpcodeIsCB
@@ -117,9 +129,9 @@ func (c *CPU) LoadROM(data []byte) error {
 	return nil
 }
 
-func (c *CPU) InterruptVBlank() int {
+func (c *CPU) DoInterrupt(addr uint16) int {
 	c.StackPush16b(c.PC)
-	c.PC = 0x0040
+	c.PC = addr
 	return 20
 }
 
@@ -128,9 +140,49 @@ func (c *CPU) CheckInterrupts() int {
 		return 0
 	}
 
-	if c.PPU.VBlank && c.IEEnabled(IEVBlank) {
-		return c.InterruptVBlank()
+	if c.InterruptTimer && c.IEEnabled(IETimer) {
+		c.InterruptTimer = false
+		return c.DoInterrupt(0x0050)
+	}
+
+	if c.PPU.InterruptVBlank && c.IEEnabled(IEVBlank) {
+		c.PPU.InterruptVBlank = false
+		return c.DoInterrupt(0x0040)
 	}
 
 	return 0
+}
+
+func (c *CPU) UpdateTimer() {
+	delta := c.Cycle - c.LastTimerUpdateCycle
+	if delta <= 0 {
+		return
+	}
+
+	c.Mem[IODIV] += byte(delta / 4)
+	c.UpdateTimerInterrupt(delta)
+}
+
+func (c *CPU) UpdateTimerInterrupt(delta int) {
+	if (c.Mem[IOTAC] & (1 << 2)) == 0x00 {
+		return
+	}
+
+	if c.TimerOverflow {
+		c.Mem[IOTIMA] = c.Mem[IOTMA]
+		c.InterruptTimer = true
+		c.TimerOverflow = false
+		return
+	}
+
+	c.TimerOverflow = false
+
+	for i := 0; i < delta; i += 4 {
+		c.Mem[IOTIMA]++
+
+		// TIMA overflow
+		if c.Mem[IOTIMA] == 0x00 {
+			c.TimerOverflow = true
+		}
+	}
 }

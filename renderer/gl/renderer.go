@@ -13,6 +13,7 @@ import (
 
 func Run(nextFrame <-chan *image.RGBA, quit chan<- bool) {
 	runtime.LockOSThread()
+	defer func() { quit <- true }()
 
 	if err := glfw.Init(); err != nil {
 		panic(fmt.Errorf("could not init GLFW: %s", err))
@@ -55,8 +56,6 @@ func Run(nextFrame <-chan *image.RGBA, quit chan<- bool) {
 		window.SwapBuffers()
 		glfw.PollEvents()
 	}
-
-	quit <- true
 }
 
 func drawPlane(program, vao, texture uint32) {
