@@ -19,24 +19,35 @@ type Debugger struct {
 	cpu *cpu.CPU
 	ppu *ppu.PPU
 
-	gui  *gocui.Gui
-	quit chan bool
+	gui *gocui.Gui
 
-	lastCPUError error
-	pause        *abool.AtomicBool
-	stepOnce     *abool.AtomicBool
+	// Flow control
+	quit     chan bool
+	pause    *abool.AtomicBool
+	stepOnce *abool.AtomicBool
 
+	// View buffers
 	insBuffer              [insBufferStride * 256]byte
 	curInsBufferWriteIndex int
 	msgBuffer              string
+	lastCPUError           error
 
+	// I/O registers
+	ioIF      byte
+	ioIE      byte
+	ioIMaster bool
+	ioDIV     byte
+	ioTMA     byte
+	ioTAC     byte
+	ioTIMA    byte
+
+	// Performance counters
 	opCount         int
 	lastPerfOpCount int
 	frameCount      int
 	lastPerfDisplay time.Time
-
-	opPerSecond    int
-	framePerSecond int
+	opPerSecond     int
+	framePerSecond  int
 }
 
 func New(c *cpu.CPU, p *ppu.PPU) (*Debugger, error) {
@@ -89,7 +100,7 @@ func (d *Debugger) Panic(err error) {
 // and will block if the user requested a pause or breakpoint.
 func (d *Debugger) Update() {
 	d.updateInstructions()
-	d.updateMessages()
+	d.updateIORegisters()
 	d.updatePerfCounters()
 
 	if d.stepOnce.IsSet() {
@@ -117,6 +128,10 @@ func (d *Debugger) updateGUI(g *gocui.Gui) error {
 		return err
 	}
 
+	if err := d.updateIORegistersWindow(g); err != nil {
+		return err
+	}
+
 	if err := d.updateMsgWindow(g); err != nil {
 		return err
 	}
@@ -126,6 +141,16 @@ func (d *Debugger) updateGUI(g *gocui.Gui) error {
 	}
 
 	return nil
+}
+
+func (d *Debugger) updateIORegisters() {
+	d.ioIF = d.cpu.Mem[cpu.IOIF]
+	d.ioIE = d.cpu.InterruptEnable
+	d.ioIMaster = d.cpu.InterruptMaster
+	d.ioDIV = d.cpu.Mem[cpu.IODIV]
+	d.ioTMA = d.cpu.Mem[cpu.IOTMA]
+	d.ioTAC = d.cpu.Mem[cpu.IOTAC]
+	d.ioTIMA = d.cpu.Mem[cpu.IOTIMA]
 }
 
 func (d *Debugger) updateInstructions() {
@@ -163,6 +188,7 @@ func (d *Debugger) updatePerfCounters() {
 		d.frameCount = d.ppu.PushedFrames
 
 		d.gui.Update(d.updatePerfWindow)
+		d.gui.Update(d.updateIORegistersWindow) // HACK-ish, using the perf refresh
 	}
 }
 
@@ -178,6 +204,24 @@ func (d *Debugger) updateMsgWindow(g *gocui.Gui) error {
 
 	msgView.Clear()
 	fmt.Fprintln(msgView, d.msgBuffer)
+
+	return nil
+}
+
+func (d *Debugger) updateIORegistersWindow(g *gocui.Gui) error {
+	v, err := g.View("I/O registers")
+	if err != nil {
+		return err
+	}
+	v.Clear()
+
+	fmt.Fprintf(v, "IF:      %02X\n", d.ioIF)
+	fmt.Fprintf(v, "IE:      %02X\n", d.ioIE)
+	fmt.Fprintf(v, "IMaster: %t\n", d.ioIMaster)
+	fmt.Fprintf(v, "DIV:     %02X\n", d.ioDIV)
+	fmt.Fprintf(v, "TMA:     %02X\n", d.ioTMA)
+	fmt.Fprintf(v, "TAC:     %02X\n", d.ioTAC)
+	fmt.Fprintf(v, "TIMA:    %02X\n", d.ioTIMA)
 
 	return nil
 }

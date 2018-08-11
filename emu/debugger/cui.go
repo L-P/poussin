@@ -1,13 +1,15 @@
 package debugger
 
-import "github.com/jroimartin/gocui"
+import (
+	"github.com/jroimartin/gocui"
+)
 
 func (d *Debugger) layout(g *gocui.Gui) error {
-	_, maxY := g.Size()
-	maxY -= 1 // Adjust for last border
+	maxX, maxY := g.Size()
 
-	msgViewWidth := 65
-	msgViewHeight := 8
+	iW := 17
+	msgW := maxX - (iW * 2)
+	msgH := 9
 
 	views := []struct {
 		name string
@@ -16,9 +18,34 @@ func (d *Debugger) layout(g *gocui.Gui) error {
 		x2   int
 		y2   int
 	}{
-		{"instructions", 0, 0, 80, maxY - msgViewHeight - 1},
-		{"messages", 0, maxY - msgViewHeight, msgViewWidth, maxY},
-		{"performance", msgViewWidth + 1, maxY - msgViewHeight, 80, maxY},
+		{
+			"instructions",
+			0,
+			0,
+			maxX - 1,
+			maxY - msgH - 1,
+		},
+		{
+			"messages",
+			0,
+			maxY - msgH,
+			msgW,
+			maxY - 1,
+		},
+		{
+			"I/O registers",
+			msgW + 1,
+			maxY - msgH,
+			msgW + iW,
+			maxY - 1,
+		},
+		{
+			"performance",
+			msgW + iW + 1,
+			maxY - msgH,
+			maxX - 1,
+			maxY - 1,
+		},
 	}
 
 	for _, v := range views {

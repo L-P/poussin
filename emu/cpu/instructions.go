@@ -552,7 +552,7 @@ func i_and_n(name byte) InstructionImplementation {
 	}
 }
 
-// Performs a logical XOR against A xor n
+// Performs a logical XOR against A and n
 func i_xor_n(name byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
 		get, _ := c.GetRegisterCallbacks(name)
