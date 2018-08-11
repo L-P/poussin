@@ -5,7 +5,7 @@ import "fmt"
 var instructionsMap = map[byte]Instruction{
 	0x00: {1, 4, "NOP", i_nop},
 	0x10: {2, 4, "STOP %02X", i_stop},
-	0x08: {3, 20, "LD (%02X%02X),SP", i_ld_8d_sp},
+	0x08: {3, 20, "LD (%02X%02X),SP", i_ld_d8_sp},
 
 	0xF3: {1, 4, "DI", i_set_interrupt(false)},
 	0xFB: {1, 4, "EI", i_set_interrupt(true)},
@@ -68,6 +68,7 @@ var instructionsMap = map[byte]Instruction{
 	0x19: {1, 8, "ADD HL,DE", i_add_hl_nn("DE")},
 	0x29: {1, 8, "ADD HL,HL", i_add_hl_nn("HL")},
 	0x39: {1, 8, "ADD HL,SP", i_add_hl_nn("SP")},
+	0xE8: {2, 16, "ADD SP,%02X", i_add_sp_r8},
 
 	0xD6: {2, 8, "SUB %02X", i_sub_d8},
 	0x97: {1, 4, "SUB A", i_sub_n('A')},
@@ -77,6 +78,15 @@ var instructionsMap = map[byte]Instruction{
 	0x93: {1, 4, "SUB E", i_sub_n('E')},
 	0x94: {1, 4, "SUB H", i_sub_n('H')},
 	0x95: {1, 4, "SUB L", i_sub_n('L')},
+
+	0x9F: {1, 4, "SBC A,A", i_sbc_a_n('A')},
+	0x98: {1, 4, "SBC A,B", i_sbc_a_n('B')},
+	0x99: {1, 4, "SBC A,C", i_sbc_a_n('C')},
+	0x9A: {1, 4, "SBC A,D", i_sbc_a_n('D')},
+	0x9B: {1, 4, "SBC A,E", i_sbc_a_n('E')},
+	0x9C: {1, 4, "SBC A,H", i_sbc_a_n('H')},
+	0x9D: {1, 4, "SBC A,L", i_sbc_a_n('L')},
+	0xDE: {2, 8, "SBC A,%01X", i_sbc_a_d8},
 
 	0xA8: {1, 4, "XOR B", i_xor_n('B')},
 	0xA9: {1, 4, "XOR C", i_xor_n('C')},
@@ -214,7 +224,7 @@ var instructionsMap = map[byte]Instruction{
 	0x36: {2, 12, "LD (HL),%02X", i_ld_phl_n},
 	0xE0: {2, 12, "LDH ($%02X),A", i_ldh_pn_a},
 	0xF0: {2, 12, "LDH A,($%02X)", i_ldh_a_pn},
-	0xF8: {2, 12, "LDHL SP,$%02X", i_ldhl_sp_8b},
+	0xF8: {2, 12, "LDHL SP,$%02X", i_ldhl_sp_r8},
 
 	0xBE: {1, 8, "CP (HL)", i_cp_phl},
 	0xFE: {2, 8, "CP $%02X", i_cp_8b},
@@ -794,6 +804,40 @@ func i_adc_a_n(name byte) InstructionImplementation {
 	}
 }
 
+// Substracts the value n from A (- 1 if the carry flag is set)
+func i_sbc_a_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, _ := c.GetRegisterCallbacks(name)
+
+		old := c.A
+		sub := get()
+		if c.FlagCarry {
+			sub -= 1
+		}
+
+		c.A -= sub
+		c.FlagZero = c.A == 0
+		c.FlagSubstract = true
+		c.FlagCarry = old > c.A
+		c.FlagHalfCarry = (c.A & 0xF) < (sub & 0xF)
+	}
+}
+
+// Substracts the value l from A (- 1 if the carry flag is set)
+func i_sbc_a_d8(c *CPU, l, _ byte) {
+	old := c.A
+	sub := l
+	if c.FlagCarry {
+		sub -= 1
+	}
+
+	c.A -= sub
+	c.FlagZero = c.A == 0
+	c.FlagSubstract = true
+	c.FlagCarry = old > c.A
+	c.FlagHalfCarry = (c.A & 0xF) < (sub & 0xF)
+}
+
 // Adds the value l to A + 1 if the carry flag is set
 func i_adc_a_d8(c *CPU, l, _ byte) {
 	old := c.A
@@ -893,7 +937,7 @@ func i_add_hl_nn(name string) InstructionImplementation {
 }
 
 // Loads SP + l into HL
-func i_ldhl_sp_8b(c *CPU, l, _ byte) {
+func i_ldhl_sp_r8(c *CPU, l, _ byte) {
 	c.HL = signedOffset(c.SP, l)
 }
 
@@ -935,8 +979,19 @@ func i_ld_sp_hl(c *CPU, _, _ byte) {
 }
 
 // Loads SP value into given address
-func i_ld_8d_sp(c *CPU, l, h byte) {
+func i_ld_d8_sp(c *CPU, l, h byte) {
 	addr := uint16(l) | (uint16(h) << 8)
 	c.Write(addr, byte(c.SP&0x00FF))
 	c.Write(addr+1, byte(c.SP&0xFF00>>8))
+}
+
+// Adds signed l to SP
+func i_add_sp_r8(c *CPU, l, _ byte) {
+	c.SP = signedOffset(c.PC, l)
+
+	c.FlagCarry = false     // TODO
+	c.FlagHalfCarry = false // TODO
+
+	c.FlagZero = false
+	c.FlagSubstract = false
 }
