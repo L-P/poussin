@@ -205,6 +205,7 @@ func (d *Debugger) layout(g *gocui.Gui) error {
 			case "instructions":
 				view.Autoscroll = true
 			case "messages":
+				view.Autoscroll = true
 				view.Wrap = true
 			}
 		}
