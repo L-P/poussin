@@ -89,7 +89,8 @@ func (d *Debugger) RunGUI(shouldClose <-chan bool) {
 		guiClosed <- true
 	}()
 
-	ticker := time.NewTicker(250 * time.Millisecond)
+	// Update GUI at 15 fps, no slowdown on my if > ~6ms ticker
+	ticker := time.NewTicker(66 * time.Millisecond)
 	defer ticker.Stop()
 
 loop:
