@@ -102,8 +102,6 @@ func (p *PPU) Cycle() {
 
 // SendFrame sends a frame to the renderer
 func (p *PPU) SendFrame() {
-	// p.DrawBackground()
-
 	// Send the current back buffer and promote it to front
 	// HACK: This call is blocking, thus ensuring we don't run the emulation
 	// crazy fast, this only works if the receiver runs at 60hz of course
@@ -119,21 +117,6 @@ func (p *PPU) BackBuffer() *image.RGBA {
 	return p.Buffers[p.BackBufferIndex]
 }
 
-func (p *PPU) DrawBackground() {
-	fp := p.BackBuffer()
-
-	for x := 0; x < 256; x++ {
-		for y := 0; y < 256; y++ {
-			dataAddr := p.GetTileDataAddress(byte(x), byte(y))
-			tileData := p.GetTileData(dataAddr, byte(x), byte(y))
-
-			c := p.Colorize(p.Palettize(tileData))
-
-			fp.SetRGBA(int(x), int(y), color.RGBA{c, c, c, 255})
-		}
-	}
-}
-
 func (p *PPU) Draw() {
 	lcdX := byte(p.Cycles / 2)
 	lcdY := p.LY
@@ -147,12 +130,12 @@ func (p *PPU) Draw() {
 	dataAddr := p.GetTileDataAddress(x, y)
 	tileData := p.GetTileData(dataAddr, x, y)
 
-	c := p.Colorize(p.Palettize(tileData))
+	c := Colorize(p.Palettize(tileData))
 
 	p.BackBuffer().SetRGBA(int(x), int(y), color.RGBA{c, c, c, 255})
 }
 
-func (p *PPU) Colorize(b byte) byte {
+func Colorize(b byte) byte {
 	switch b {
 	case 0x00:
 		return 0xFF
@@ -184,9 +167,14 @@ func (p *PPU) Palettize(b byte) byte {
 
 // Returns the adress of the tile data for pixel at x,y
 func (p *PPU) GetTileDataAddress(x, y byte) uint16 {
-	mapOffset, _ := p.GetBGTileMapRange()
+	mapOffset, end := p.GetBGTileMapRange()
 	tileX, tileY := uint16(x/8), uint16(y/8)
-	tileID := p.FetchVRAM(mapOffset + tileX + (tileY * 8))
+	tileIDAddr := mapOffset + tileX + (tileY * 8)
+	if tileIDAddr > end {
+		panic("fetching tile outside of tile map")
+	}
+
+	tileID := p.FetchVRAM(tileIDAddr)
 
 	dataOffset, _ := p.GetBGWindowTileDataRange()
 	addr := dataOffset + uint16(tileID)
@@ -199,6 +187,5 @@ func (p *PPU) GetTileData(addr uint16, x, y byte) byte {
 	dX, dY := byte(x%8), byte(y%8)
 	b := p.FetchVRAM(addr + uint16(dY))
 
-	mask := byte((1 << dX) | (1 << (dX + 1)))
-	return (b & mask) >> dX
+	return (b >> dX) & 0x03
 }
