@@ -8,6 +8,29 @@ import (
 	"home.leo-peltier.fr/poussin/emu/cpu"
 )
 
+func (d *Debugger) updateGUI(g *gocui.Gui) error {
+	d.Lock()
+	defer d.Unlock()
+
+	if err := d.updatePerfWindow(g); err != nil {
+		return err
+	}
+
+	if err := d.updateIORegistersWindow(g); err != nil {
+		return err
+	}
+
+	if err := d.updateMsgWindow(g); err != nil {
+		return err
+	}
+
+	if err := d.updateInsWindow(g); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (d *Debugger) updateMsgWindow(g *gocui.Gui) error {
 	if d.msgBuffer.Len() <= 0 {
 		return nil
@@ -60,7 +83,9 @@ func (d *Debugger) updateInsWindow(g *gocui.Gui) error {
 	}
 
 	var prevRegisters cpu.Registers
-	for i := d.curInsBufferWriteIndex; i != d.curInsBufferWriteIndex-insBufferStride; i = (i + insBufferStride) % len(d.insBuffer) {
+	for j := 0; j < len(d.insBuffer)/insBufferStride; j++ {
+		i := (d.curInsBufferWriteIndex + (j * insBufferStride)) % len(d.insBuffer)
+
 		registers := cpu.ReadFromArray(d.insBuffer[:], i)
 		opcode := d.insBuffer[i+12+0]
 		l := d.insBuffer[i+12+2]
@@ -105,20 +130,17 @@ func (d *Debugger) printInstruction(
 		if prevStr[i] != curStr[i] {
 			if !diff {
 				diff = true
-				final.WriteByte(0x1B)
-				final.WriteString("[1;31m")
+				final.WriteString("\x1b[1;31m")
 			}
 		} else {
 			diff = false
-			final.WriteByte(0x1B)
-			final.WriteString("[0m")
+			final.WriteString("\x1b[0m")
 		}
 
 		final.WriteByte(curStr[i])
 	}
 
-	final.WriteByte(0x1B)
-	final.WriteString("[0m")
+	final.WriteString("\x1b[0m")
 
 	fmt.Fprintf(
 		view,

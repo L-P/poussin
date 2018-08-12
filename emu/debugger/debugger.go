@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/jroimartin/gocui"
@@ -19,11 +20,14 @@ type Debugger struct {
 	cpu *cpu.CPU
 	ppu *ppu.PPU
 
-	gui    *gocui.Gui
+	gui *gocui.Gui
+
+	// Synchronization
 	closed *abool.AtomicBool
+	sync.Mutex
 
 	// View buffers
-	insBuffer              [insBufferStride * 256]byte
+	insBuffer              [insBufferStride * 128]byte
 	curInsBufferWriteIndex int
 	msgBuffer              bytes.Buffer
 	lastCPUError           error
@@ -85,12 +89,21 @@ func (d *Debugger) RunGUI(shouldClose <-chan bool) {
 		guiClosed <- true
 	}()
 
-	select {
-	case <-shouldClose:
-		d.gui.Update(func(*gocui.Gui) error { return gocui.ErrQuit })
-		d.gui.Close()
-		<-guiClosed // wait for GUI to exit
-	case <-guiClosed:
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+loop:
+	for true {
+		select {
+		case <-ticker.C:
+			d.gui.Update(d.updateGUI)
+		case <-shouldClose:
+			d.gui.Update(func(*gocui.Gui) error { return gocui.ErrQuit })
+			<-guiClosed // wait for GUI to exit
+			break loop
+		case <-guiClosed:
+			break loop
+		}
 	}
 
 	d.closed.Set()
@@ -109,30 +122,14 @@ func (d *Debugger) Panic(err error) {
 // Update updates the debugger internal state from the current CPU/PPU state
 // and will block if the user requested a pause or breakpoint.
 func (d *Debugger) Update() {
+	d.Lock()
+
 	d.updateInstructions()
 	d.updateMessages()
 	d.updateIORegisters()
 	d.updatePerfCounters()
-}
 
-func (d *Debugger) updateGUI(g *gocui.Gui) error {
-	if err := d.updatePerfWindow(g); err != nil {
-		return err
-	}
-
-	if err := d.updateIORegistersWindow(g); err != nil {
-		return err
-	}
-
-	if err := d.updateMsgWindow(g); err != nil {
-		return err
-	}
-
-	if err := d.updateInsWindow(g); err != nil {
-		return err
-	}
-
-	return nil
+	d.Unlock()
 }
 
 func (d *Debugger) updateIORegisters() {
