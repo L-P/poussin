@@ -3,6 +3,7 @@ package debugger
 import (
 	"bytes"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/jroimartin/gocui"
 	"home.leo-peltier.fr/poussin/emu/cpu"
@@ -12,7 +13,7 @@ func (d *Debugger) updateGUI(g *gocui.Gui) error {
 	d.Lock()
 	defer d.Unlock()
 
-	if err := d.updatePerfWindow(g); err != nil {
+	if err := d.updateMiscWindow(g); err != nil {
 		return err
 	}
 
@@ -65,13 +66,19 @@ func (d *Debugger) updateIORegistersWindow(g *gocui.Gui) error {
 	return nil
 }
 
-func (d *Debugger) updatePerfWindow(g *gocui.Gui) error {
-	v, err := g.View("performance")
+func (d *Debugger) updateMiscWindow(g *gocui.Gui) error {
+	v, err := g.View("misc")
 	if err != nil {
 		return err
 	}
 	v.Clear()
-	fmt.Fprintf(v, "OPS: %d\nFPS: %d", d.opPerSecond, d.framePerSecond)
+	fmt.Fprintf(
+		v,
+		"OPS: %d\nFPS: %d\nDepth: %d\n",
+		d.opPerSecond,
+		d.framePerSecond,
+		d.callDepth,
+	)
 
 	return nil
 }
@@ -186,7 +193,7 @@ func (d *Debugger) layout(g *gocui.Gui) error {
 			maxY - 1,
 		},
 		{
-			"performance",
+			"misc",
 			msgW + iW + 1,
 			maxY - msgH,
 			maxX - 1,
@@ -223,7 +230,9 @@ func (d *Debugger) initKeybinds() error {
 	}{
 		{d.cbPause, 'p'},
 		{d.cbQuit, 'q'},
-		{d.cbStep, 'j'},
+		{d.cbStepOut, 'h'},
+		{d.cbStepOver, 'j'},
+		{d.cbStepIn, 'l'},
 	}
 
 	for _, v := range binds {
@@ -231,7 +240,7 @@ func (d *Debugger) initKeybinds() error {
 			"",
 			v.key,
 			gocui.ModNone,
-			v.handler,
+			d.keybindWrapper(v.handler),
 		); err != nil {
 			return err
 		}
@@ -240,14 +249,51 @@ func (d *Debugger) initKeybinds() error {
 	return nil
 }
 
-func (d *Debugger) cbStep(g *gocui.Gui, v *gocui.View) error {
+func (d *Debugger) keybindWrapper(h keybindHandler) keybindHandler {
+	return func(g *gocui.Gui, v *gocui.View) error {
+		d.Lock()
+		defer d.Unlock()
+		return h(g, v)
+	}
+}
+
+func (d *Debugger) cbStepOut(g *gocui.Gui, v *gocui.View) error {
+	if atomic.LoadInt32(&d.flowState) == FlowPause {
+		atomic.StoreInt32(&d.flowState, FlowStepOut)
+	}
+	d.requestedDepth = d.callDepth - 1
+
+	return nil
+}
+
+func (d *Debugger) cbStepOver(g *gocui.Gui, v *gocui.View) error {
+	if atomic.LoadInt32(&d.flowState) == FlowPause {
+		atomic.StoreInt32(&d.flowState, FlowStepOver)
+	}
+
+	return nil
+}
+
+func (d *Debugger) cbStepIn(g *gocui.Gui, v *gocui.View) error {
+	if atomic.LoadInt32(&d.flowState) == FlowPause {
+		atomic.StoreInt32(&d.flowState, FlowStepIn)
+		d.requestedDepth = d.callDepth + 1
+	}
+
 	return nil
 }
 
 func (d *Debugger) cbPause(g *gocui.Gui, v *gocui.View) error {
+	if atomic.LoadInt32(&d.flowState) == FlowPause {
+		atomic.StoreInt32(&d.flowState, FlowRun)
+	} else {
+		atomic.StoreInt32(&d.flowState, FlowPause)
+	}
+
 	return nil
 }
 
 func (d *Debugger) cbQuit(g *gocui.Gui, v *gocui.View) error {
+	atomic.StoreInt32(&d.flowState, FlowQuit)
 	return gocui.ErrQuit
 }

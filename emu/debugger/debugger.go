@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jroimartin/gocui"
@@ -16,15 +17,24 @@ import (
 // registers + opcode + CB + low arg + high arg
 const insBufferStride = 12 + 4
 
+// Debugger is a CLI for debugging a GameBoy ROM execution.
 type Debugger struct {
+	// We have two routines, one for writing the CPU state and one for
+	// displaying it, we embed a mutex to safely run the routines concurrently.
+	sync.Mutex
+
 	cpu *cpu.CPU
 	ppu *ppu.PPU
 
-	gui *gocui.Gui
-
-	// Synchronization
+	// Set to true when the debugger has quit for any reason.
 	closed *abool.AtomicBool
-	sync.Mutex
+	gui    *gocui.Gui
+
+	// Flow control
+	flowState      int32
+	requestedDepth int
+	// _will_ be negative, nothing prevents you from pushing the stack and RET without having a CALL
+	callDepth int
 
 	// View buffers
 	insBuffer              [insBufferStride * 128]byte
@@ -50,6 +60,16 @@ type Debugger struct {
 	framePerSecond  int
 }
 
+const (
+	FlowRun = int32(iota)
+	FlowQuit
+	FlowPause
+	FlowStepIn
+	FlowStepOut
+	FlowStepOver
+)
+
+// New creates a new debugger instance.
 func New(c *cpu.CPU, p *ppu.PPU) (*Debugger, error) {
 	gui, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
@@ -71,6 +91,7 @@ func New(c *cpu.CPU, p *ppu.PPU) (*Debugger, error) {
 	return &d, nil
 }
 
+// Close cleans up the terminal and should be called when the debugger is done running.
 func (d *Debugger) Close() {
 	// If gocui/termbox was closed once alreay it will block on reading a channel
 	if !d.closed.IsSet() {
@@ -128,9 +149,28 @@ func (d *Debugger) Update() {
 	d.updateInstructions()
 	d.updateMessages()
 	d.updateIORegisters()
-	d.updatePerfCounters()
+	d.updateMiscCounters()
 
 	d.Unlock()
+
+	d.flowControl()
+}
+
+func (d *Debugger) flowControl() {
+	switch atomic.LoadInt32(&d.flowState) {
+	case FlowStepOver:
+		atomic.StoreInt32(&d.flowState, FlowPause)
+	case FlowStepIn:
+		fallthrough
+	case FlowStepOut:
+		if d.callDepth == d.requestedDepth {
+			atomic.StoreInt32(&d.flowState, FlowPause)
+		}
+	}
+
+	for atomic.LoadInt32(&d.flowState) == FlowPause {
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 func (d *Debugger) updateIORegisters() {
@@ -155,6 +195,73 @@ func (d *Debugger) updateInstructions() {
 	d.insBuffer[d.curInsBufferWriteIndex+12+2] = d.cpu.LastLowArg
 	d.insBuffer[d.curInsBufferWriteIndex+12+3] = d.cpu.LastHighArg
 	d.curInsBufferWriteIndex = (d.curInsBufferWriteIndex + insBufferStride) % len(d.insBuffer)
+
+	d.updateCallDepth()
+}
+
+func (d *Debugger) updateCallDepth() {
+	if !d.cpu.LastOpcodeWasCB {
+		switch d.cpu.LastOpcode {
+		// RST
+		case 0xC7:
+			fallthrough
+		case 0xCF:
+			fallthrough
+		case 0xD7:
+			fallthrough
+		case 0xDF:
+			fallthrough
+		case 0xE7:
+			fallthrough
+		case 0xEF:
+			fallthrough
+		case 0xF7:
+			fallthrough
+		case 0xFF:
+			fallthrough
+		// CALL
+		case 0xCD:
+			fallthrough
+		case 0xC4:
+			fallthrough
+		case 0xCC:
+			fallthrough
+		case 0xD4:
+			fallthrough
+		case 0xDC:
+			d.callDepth++
+		case 0xC9:
+			fallthrough
+		case 0xD9:
+			fallthrough
+		case 0xC0:
+			fallthrough
+		case 0xC8:
+			fallthrough
+		case 0xD0:
+			fallthrough
+		case 0xD8:
+			d.callDepth--
+		}
+	}
+
+	// Interrupts count as one depth
+	if d.cpu.Mem[cpu.IODisableBootROM] == 0x01 {
+		switch d.cpu.PC {
+		case 0x0040:
+			fallthrough
+		case 0x0048:
+			fallthrough
+		case 0x0050:
+			fallthrough
+		case 0x0058:
+			fallthrough
+		case 0x0060:
+			fallthrough
+		case 0x0080:
+			d.callDepth++
+		}
+	}
 }
 
 func (d *Debugger) updateMessages() {
@@ -169,7 +276,7 @@ func (d *Debugger) updateMessages() {
 	}
 }
 
-func (d *Debugger) updatePerfCounters() {
+func (d *Debugger) updateMiscCounters() {
 	d.opCount++
 	now := time.Now()
 	if now.Sub(d.lastPerfDisplay) >= time.Duration(1*time.Second) {
