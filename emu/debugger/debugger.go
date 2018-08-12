@@ -27,11 +27,13 @@ type Debugger struct {
 	ppu *ppu.PPU
 
 	// Set to true when the debugger has quit for any reason.
-	closed *abool.AtomicBool
-	gui    *gocui.Gui
+	closed   *abool.AtomicBool
+	gui      *gocui.Gui
+	hasModal *abool.AtomicBool
 
 	// Flow control
 	flowState      int32
+	stepToPC       uint16
 	requestedDepth int
 	// _will_ be negative, nothing prevents you from pushing the stack and RET without having a CALL
 	callDepth int
@@ -66,6 +68,7 @@ const (
 	FlowPause
 	FlowStepIn
 	FlowStepOut
+	FlowStepToPC
 	FlowStepOver
 )
 
@@ -75,12 +78,14 @@ func New(c *cpu.CPU, p *ppu.PPU) (*Debugger, error) {
 	if err != nil {
 		return nil, err
 	}
+	gui.InputEsc = true
 
 	d := Debugger{
-		cpu:    c,
-		ppu:    p,
-		gui:    gui,
-		closed: abool.New(),
+		cpu:      c,
+		ppu:      p,
+		gui:      gui,
+		closed:   abool.New(),
+		hasModal: abool.New(),
 	}
 
 	d.gui.SetManagerFunc(d.layout)
@@ -158,12 +163,16 @@ func (d *Debugger) Update() {
 
 func (d *Debugger) flowControl() {
 	switch atomic.LoadInt32(&d.flowState) {
-	case FlowStepOver:
-		atomic.StoreInt32(&d.flowState, FlowPause)
 	case FlowStepIn:
 		fallthrough
 	case FlowStepOut:
 		if d.callDepth == d.requestedDepth {
+			atomic.StoreInt32(&d.flowState, FlowPause)
+		}
+	case FlowStepOver:
+		atomic.StoreInt32(&d.flowState, FlowPause)
+	case FlowStepToPC:
+		if d.cpu.PC == d.stepToPC {
 			atomic.StoreInt32(&d.flowState, FlowPause)
 		}
 	}

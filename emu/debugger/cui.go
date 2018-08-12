@@ -3,15 +3,84 @@ package debugger
 import (
 	"bytes"
 	"fmt"
-	"sync/atomic"
+	"strconv"
+	"strings"
 
 	"github.com/jroimartin/gocui"
 	"home.leo-peltier.fr/poussin/emu/cpu"
 )
 
+func (d *Debugger) layout(g *gocui.Gui) error {
+	maxX, maxY := g.Size()
+
+	iW := 17
+	msgW := maxX - (iW * 2)
+	msgH := 9
+
+	views := []struct {
+		name string
+		x1   int
+		y1   int
+		x2   int
+		y2   int
+	}{
+		{
+			"instructions",
+			0,
+			0,
+			maxX - 1,
+			maxY - msgH - 1,
+		},
+		{
+			"messages",
+			0,
+			maxY - msgH,
+			msgW,
+			maxY - 1,
+		},
+		{
+			"I/O registers",
+			msgW + 1,
+			maxY - msgH,
+			msgW + iW,
+			maxY - 1,
+		},
+		{
+			"misc",
+			msgW + iW + 1,
+			maxY - msgH,
+			maxX - 1,
+			maxY - 1,
+		},
+	}
+
+	for _, v := range views {
+		if view, err := g.SetView(v.name, v.x1, v.y1, v.x2, v.y2); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+
+			view.Title = v.name
+			switch v.name {
+			case "instructions":
+				view.Autoscroll = true
+			case "messages":
+				view.Autoscroll = true
+				view.Wrap = true
+			}
+		}
+	}
+
+	return nil
+}
+
 func (d *Debugger) updateGUI(g *gocui.Gui) error {
 	d.Lock()
 	defer d.Unlock()
+
+	if !d.hasModal.IsSet() {
+		g.SetCurrentView("instructions")
+	}
 
 	if err := d.updateMiscWindow(g); err != nil {
 		return err
@@ -57,7 +126,7 @@ func (d *Debugger) updateIORegistersWindow(g *gocui.Gui) error {
 
 	fmt.Fprintf(v, "IF:      %02X\n", d.ioIF)
 	fmt.Fprintf(v, "IE:      %02X\n", d.ioIE)
-	fmt.Fprintf(v, "IMaster: %t\n", d.ioIMaster)
+	fmt.Fprintf(v, "IME:     %t\n", d.ioIMaster)
 	fmt.Fprintf(v, "DIV:     %02X\n", d.ioDIV)
 	fmt.Fprintf(v, "TMA:     %02X\n", d.ioTMA)
 	fmt.Fprintf(v, "TAC:     %02X\n", d.ioTAC)
@@ -157,143 +226,63 @@ func (d *Debugger) printInstruction(
 	)
 }
 
-func (d *Debugger) layout(g *gocui.Gui) error {
+// Creates a small centered editable window
+func inputModalView(g *gocui.Gui, title string) (*gocui.View, error) {
 	maxX, maxY := g.Size()
+	w := 32
+	h := 2
+	x := maxX/2 - w/2
+	y := maxY/2 - h/2
 
-	iW := 17
-	msgW := maxX - (iW * 2)
-	msgH := 9
-
-	views := []struct {
-		name string
-		x1   int
-		y1   int
-		x2   int
-		y2   int
-	}{
-		{
-			"instructions",
-			0,
-			0,
-			maxX - 1,
-			maxY - msgH - 1,
-		},
-		{
-			"messages",
-			0,
-			maxY - msgH,
-			msgW,
-			maxY - 1,
-		},
-		{
-			"I/O registers",
-			msgW + 1,
-			maxY - msgH,
-			msgW + iW,
-			maxY - 1,
-		},
-		{
-			"misc",
-			msgW + iW + 1,
-			maxY - msgH,
-			maxX - 1,
-			maxY - 1,
-		},
-	}
-
-	for _, v := range views {
-		if view, err := g.SetView(v.name, v.x1, v.y1, v.x2, v.y2); err != nil {
-			if err != gocui.ErrUnknownView {
-				return err
-			}
-
-			view.Title = v.name
-			switch v.name {
-			case "instructions":
-				view.Autoscroll = true
-			case "messages":
-				view.Autoscroll = true
-				view.Wrap = true
-			}
+	v, err := g.SetView(title, x, y, x+w, y+h)
+	if err != nil {
+		if err != gocui.ErrUnknownView {
+			return nil, err
 		}
 	}
 
-	return nil
+	v.Editable = true
+	v.Title = title
+	g.SetViewOnTop(title)
+	g.SetCurrentView(title)
+	v.Clear()
+
+	return v, nil
 }
 
-type keybindHandler func(g *gocui.Gui, v *gocui.View) error
+func (d *Debugger) inputUInt16Modal(g *gocui.Gui, title string, cb func(uint16)) error {
+	if d.hasModal.IsSet() {
+		return nil
+	}
+	d.hasModal.Set()
 
-func (d *Debugger) initKeybinds() error {
-	binds := []struct {
-		handler keybindHandler
-		key     rune
-	}{
-		{d.cbPause, 'p'},
-		{d.cbQuit, 'q'},
-		{d.cbStepOut, 'h'},
-		{d.cbStepOver, 'j'},
-		{d.cbStepIn, 'l'},
+	if _, err := inputModalView(g, title); err != nil {
+		return err
 	}
 
-	for _, v := range binds {
-		if err := d.gui.SetKeybinding(
-			"",
-			v.key,
-			gocui.ModNone,
-			d.keybindWrapper(v.handler),
-		); err != nil {
-			return err
-		}
-	}
+	if err := g.SetKeybinding(
+		title,
+		gocui.KeyEnter,
+		gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			buf := strings.Trim(v.Buffer(), "\n ")
 
-	return nil
-}
+			if buf != "" {
+				s, err := strconv.ParseUint(buf, 16, 16)
+				if err != nil {
+					d.msgBuffer.WriteString(err.Error() + "\n")
+					return nil
+				}
+				cb(uint16(s))
+			}
 
-func (d *Debugger) keybindWrapper(h keybindHandler) keybindHandler {
-	return func(g *gocui.Gui, v *gocui.View) error {
-		d.Lock()
-		defer d.Unlock()
-		return h(g, v)
-	}
-}
-
-func (d *Debugger) cbStepOut(g *gocui.Gui, v *gocui.View) error {
-	if atomic.LoadInt32(&d.flowState) == FlowPause {
-		atomic.StoreInt32(&d.flowState, FlowStepOut)
-	}
-	d.requestedDepth = d.callDepth - 1
-
-	return nil
-}
-
-func (d *Debugger) cbStepOver(g *gocui.Gui, v *gocui.View) error {
-	if atomic.LoadInt32(&d.flowState) == FlowPause {
-		atomic.StoreInt32(&d.flowState, FlowStepOver)
+			d.hasModal.UnSet()
+			g.DeleteKeybindings(title)
+			return g.DeleteView(title)
+		},
+	); err != nil {
+		return err
 	}
 
 	return nil
-}
-
-func (d *Debugger) cbStepIn(g *gocui.Gui, v *gocui.View) error {
-	if atomic.LoadInt32(&d.flowState) == FlowPause {
-		atomic.StoreInt32(&d.flowState, FlowStepIn)
-		d.requestedDepth = d.callDepth + 1
-	}
-
-	return nil
-}
-
-func (d *Debugger) cbPause(g *gocui.Gui, v *gocui.View) error {
-	if atomic.LoadInt32(&d.flowState) == FlowPause {
-		atomic.StoreInt32(&d.flowState, FlowRun)
-	} else {
-		atomic.StoreInt32(&d.flowState, FlowPause)
-	}
-
-	return nil
-}
-
-func (d *Debugger) cbQuit(g *gocui.Gui, v *gocui.View) error {
-	atomic.StoreInt32(&d.flowState, FlowQuit)
-	return gocui.ErrQuit
 }
