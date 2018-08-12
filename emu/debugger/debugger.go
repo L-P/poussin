@@ -29,7 +29,7 @@ type Debugger struct {
 	// View buffers
 	insBuffer              [insBufferStride * 256]byte
 	curInsBufferWriteIndex int
-	msgBuffer              string
+	msgBuffer              bytes.Buffer
 	lastCPUError           error
 
 	// I/O registers
@@ -100,6 +100,7 @@ func (d *Debugger) Panic(err error) {
 // and will block if the user requested a pause or breakpoint.
 func (d *Debugger) Update() {
 	d.updateInstructions()
+	d.updateMessages()
 	d.updateIORegisters()
 	d.updatePerfCounters()
 
@@ -168,11 +169,15 @@ func (d *Debugger) updateInstructions() {
 }
 
 func (d *Debugger) updateMessages() {
-	if d.lastCPUError == nil {
+	if d.lastCPUError != nil {
+		d.msgBuffer.WriteString(d.lastCPUError.Error())
 		return
 	}
 
-	d.msgBuffer = d.lastCPUError.Error()
+	if d.cpu.SBBuffer.Len() > 0 {
+		d.msgBuffer.Write(d.cpu.SBBuffer.Bytes())
+		d.cpu.SBBuffer.Reset()
+	}
 }
 
 func (d *Debugger) updatePerfCounters() {
@@ -189,11 +194,12 @@ func (d *Debugger) updatePerfCounters() {
 
 		d.gui.Update(d.updatePerfWindow)
 		d.gui.Update(d.updateIORegistersWindow) // HACK-ish, using the perf refresh
+		d.gui.Update(d.updateMsgWindow)         // HACK-ish, using the perf refresh
 	}
 }
 
 func (d *Debugger) updateMsgWindow(g *gocui.Gui) error {
-	if d.msgBuffer == "" {
+	if d.msgBuffer.Len() <= 0 {
 		return nil
 	}
 
@@ -203,7 +209,7 @@ func (d *Debugger) updateMsgWindow(g *gocui.Gui) error {
 	}
 
 	msgView.Clear()
-	fmt.Fprintln(msgView, d.msgBuffer)
+	fmt.Fprintln(msgView, d.msgBuffer.String())
 
 	return nil
 }

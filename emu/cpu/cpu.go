@@ -1,6 +1,7 @@
 package cpu
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -25,6 +26,7 @@ type CPU struct {
 	LastOpcodeWasCB bool
 	LastLowArg      byte
 	LastHighArg     byte
+	SBBuffer        bytes.Buffer // bytes written to IOSB
 
 	// Adressable at 0xFFFF
 	InterruptEnable byte

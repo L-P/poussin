@@ -1,9 +1,6 @@
 package cpu
 
 import (
-	"fmt"
-	"os"
-
 	"home.leo-peltier.fr/poussin/emu/ppu"
 )
 
@@ -78,14 +75,12 @@ func (c *CPU) WriteIO(addr uint16, value byte) {
 		c.Mem[IODIV] = 0
 		return
 	case IOSB:
-		fmt.Fprintf(os.Stderr, "%c", rune(value))
-		return
+		c.SBBuffer.WriteByte(value)
+		c.Mem[IOSB] = value
 	case IODisableBootROM:
 		c.Mem[IODisableBootROM] = 1 // Boot ROM can never be re-enabled
-		return
 	case IOIF:
 		c.WriteIF(value)
-		return
 	default:
 		c.Mem[addr] = value
 		// fmt.Printf("unhandled I/O write at %02X\n", addr)
