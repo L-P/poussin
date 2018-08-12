@@ -250,7 +250,7 @@ func inputModalView(g *gocui.Gui, title string) (*gocui.View, error) {
 	return v, nil
 }
 
-func (d *Debugger) inputUInt16Modal(g *gocui.Gui, title string, cb func(uint16)) error {
+func (d *Debugger) inputUIntModal(g *gocui.Gui, title string, intWidth int, cb func(int64)) error {
 	if d.hasModal.IsSet() {
 		return nil
 	}
@@ -268,12 +268,12 @@ func (d *Debugger) inputUInt16Modal(g *gocui.Gui, title string, cb func(uint16))
 			buf := strings.Trim(v.Buffer(), "\n ")
 
 			if buf != "" {
-				s, err := strconv.ParseUint(buf, 16, 16)
+				s, err := strconv.ParseUint(buf, 16, intWidth)
 				if err != nil {
 					d.msgBuffer.WriteString(err.Error() + "\n")
 					return nil
 				}
-				cb(uint16(s))
+				cb(int64(s))
 			}
 
 			d.hasModal.UnSet()
@@ -285,4 +285,12 @@ func (d *Debugger) inputUInt16Modal(g *gocui.Gui, title string, cb func(uint16))
 	}
 
 	return nil
+}
+
+func (d *Debugger) inputUInt8Modal(g *gocui.Gui, title string, cb func(byte)) error {
+	return d.inputUIntModal(g, title, 8, func(v int64) { cb(byte(v)) })
+}
+
+func (d *Debugger) inputUInt16Modal(g *gocui.Gui, title string, cb func(uint16)) error {
+	return d.inputUIntModal(g, title, 16, func(v int64) { cb(uint16(v)) })
 }
