@@ -11,35 +11,59 @@ import (
 	"home.leo-peltier.fr/poussin/emu/ppu"
 )
 
-func Run(nextFrame <-chan *image.RGBA, quit chan<- bool) {
+type Renderer struct {
+	window *glfw.Window
+
+	program uint32
+	vao     uint32
+	texture uint32
+}
+
+func New() (*Renderer, error) {
 	runtime.LockOSThread()
-	defer func() { quit <- true }()
+	defer runtime.UnlockOSThread()
 
 	if err := glfw.Init(); err != nil {
-		panic(fmt.Errorf("could not init GLFW: %s", err))
+		return nil, fmt.Errorf("could not init GLFW: %s", err)
 	}
-	defer glfw.Terminate()
-	window := initWindow()
 
-	// Don't show garbage if the first frame does not come soon enough
-	gl.Clear(gl.COLOR_BUFFER_BIT)
-	window.SwapBuffers()
+	window := initWindow()
 
 	program, err := LoadProgram(shaderDefaultVert, shaderDefaultFrag)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-
-	gl.UseProgram(program)
-	projection := mgl32.Ortho2D(0, 1, 0, 1)
-	projectionUniform := gl.GetUniformLocation(program, gl.Str("uProjection\x00"))
-	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
 	vao, _ := getPlane(program)
 	texture := createTexture(ppu.DotMatrixWidth, ppu.DotMatrixHeight)
 
-	for !window.ShouldClose() {
-		width, height := window.GetSize()
+	return &Renderer{
+		window:  window,
+		program: program,
+		vao:     vao,
+		texture: texture,
+	}, nil
+}
+
+func (r *Renderer) Close() {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	glfw.Terminate()
+}
+
+func (r *Renderer) Run(nextFrame <-chan *image.RGBA, quit chan<- bool) {
+	runtime.LockOSThread()
+
+	defer func() { quit <- true }()
+
+	gl.UseProgram(r.program)
+	projection := mgl32.Ortho2D(0, 1, 0, 1)
+	projectionUniform := gl.GetUniformLocation(r.program, gl.Str("uProjection\x00"))
+	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
+
+	for !r.window.ShouldClose() {
+		width, height := r.window.GetSize()
 		gl.Viewport(0, 0, int32(width), int32(height))
 
 		resetGLState()
@@ -47,13 +71,13 @@ func Run(nextFrame <-chan *image.RGBA, quit chan<- bool) {
 
 		select {
 		case fb := <-nextFrame:
-			updateTexture(texture, fb)
+			updateTexture(r.texture, fb)
 		default:
 		}
 
-		drawPlane(program, vao, texture)
+		drawPlane(r.program, r.vao, r.texture)
 
-		window.SwapBuffers()
+		r.window.SwapBuffers()
 		glfw.PollEvents()
 	}
 }
@@ -157,6 +181,11 @@ func initWindow() *glfw.Window {
 	if err := gl.Init(); err != nil {
 		panic(fmt.Errorf("could not init OpenGL: %s", err))
 	}
+
+	// Don't show garbage if the first frame does not come soon enough
+	resetGLState()
+	gl.Clear(gl.COLOR_BUFFER_BIT)
+	window.SwapBuffers()
 
 	glfw.SwapInterval(1)
 

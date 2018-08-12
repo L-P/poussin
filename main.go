@@ -50,7 +50,6 @@ func main() {
 }
 
 func run() error {
-
 	if len(flag.Args()) != 2 {
 		fmt.Println("Usage: poussin [-cpuprofile FILE] [-memprofile FILE] BOOTROM ROM")
 		os.Exit(1)
@@ -79,9 +78,16 @@ func run() error {
 		return err
 	}
 
+	r, err := gl.New()
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
 	quit := make(chan bool)
+
 	go gb.Run(quit)
-	go gl.Run(nextFrame, quit)
+	go r.Run(nextFrame, quit)
 
 	select {
 	case <-quit:
