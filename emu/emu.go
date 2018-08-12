@@ -39,10 +39,10 @@ func (g *Gameboy) LoadROM(rom []byte) error {
 	return g.cpu.LoadROM(rom)
 }
 
-func (g *Gameboy) Run(quit chan bool) {
-	go g.debugger.RunGUI(quit)
+func (g *Gameboy) Run(shouldClose <-chan bool, closed chan<- bool) {
+	go g.debugger.RunGUI(shouldClose)
 
-	for true {
+	for !g.debugger.Closed() {
 		cycles, err := g.cpu.Step()
 		for i := 0; i < cycles; i++ {
 			g.ppu.Cycle()
@@ -51,20 +51,10 @@ func (g *Gameboy) Run(quit chan bool) {
 
 		if err != nil {
 			g.debugger.Panic(err)
-
-			// Wait for someone to tell us to quit (ie. the renderer)
-			select {
-			case <-quit:
-				return
-			}
-		}
-
-		select {
-		case <-quit:
-			return
-		default:
 		}
 	}
+
+	close(closed)
 }
 
 func (g *Gameboy) Close() {

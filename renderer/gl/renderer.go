@@ -47,15 +47,12 @@ func New() (*Renderer, error) {
 
 func (r *Renderer) Close() {
 	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
 	glfw.Terminate()
+	runtime.UnlockOSThread()
 }
 
-func (r *Renderer) Run(nextFrame <-chan *image.RGBA, quit chan<- bool) {
+func (r *Renderer) Run(nextFrame <-chan *image.RGBA, shouldClose <-chan bool, closed chan<- bool) {
 	runtime.LockOSThread()
-
-	defer func() { quit <- true }()
 
 	gl.UseProgram(r.program)
 	projection := mgl32.Ortho2D(0, 1, 0, 1)
@@ -72,6 +69,8 @@ func (r *Renderer) Run(nextFrame <-chan *image.RGBA, quit chan<- bool) {
 		select {
 		case fb := <-nextFrame:
 			updateTexture(r.texture, fb)
+		case <-shouldClose:
+			r.window.SetShouldClose(true)
 		default:
 		}
 
@@ -80,6 +79,9 @@ func (r *Renderer) Run(nextFrame <-chan *image.RGBA, quit chan<- bool) {
 		r.window.SwapBuffers()
 		glfw.PollEvents()
 	}
+
+	runtime.UnlockOSThread()
+	close(closed)
 }
 
 func drawPlane(program, vao, texture uint32) {

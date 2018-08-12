@@ -1,8 +1,132 @@
 package debugger
 
 import (
+	"bytes"
+	"fmt"
+
 	"github.com/jroimartin/gocui"
+	"home.leo-peltier.fr/poussin/emu/cpu"
 )
+
+func (d *Debugger) updateMsgWindow(g *gocui.Gui) error {
+	if d.msgBuffer.Len() <= 0 {
+		return nil
+	}
+
+	msgView, err := g.View("messages")
+	if err != nil {
+		return err
+	}
+
+	msgView.Clear()
+	fmt.Fprintln(msgView, d.msgBuffer.String())
+
+	return nil
+}
+
+func (d *Debugger) updateIORegistersWindow(g *gocui.Gui) error {
+	v, err := g.View("I/O registers")
+	if err != nil {
+		return err
+	}
+	v.Clear()
+
+	fmt.Fprintf(v, "IF:      %02X\n", d.ioIF)
+	fmt.Fprintf(v, "IE:      %02X\n", d.ioIE)
+	fmt.Fprintf(v, "IMaster: %t\n", d.ioIMaster)
+	fmt.Fprintf(v, "DIV:     %02X\n", d.ioDIV)
+	fmt.Fprintf(v, "TMA:     %02X\n", d.ioTMA)
+	fmt.Fprintf(v, "TAC:     %02X\n", d.ioTAC)
+	fmt.Fprintf(v, "TIMA:    %02X\n", d.ioTIMA)
+
+	return nil
+}
+
+func (d *Debugger) updatePerfWindow(g *gocui.Gui) error {
+	v, err := g.View("performance")
+	if err != nil {
+		return err
+	}
+	v.Clear()
+	fmt.Fprintf(v, "OPS: %d\nFPS: %d", d.opPerSecond, d.framePerSecond)
+
+	return nil
+}
+
+func (d *Debugger) updateInsWindow(g *gocui.Gui) error {
+	view, err := g.View("instructions")
+	if err != nil {
+		return err
+	}
+
+	var prevRegisters cpu.Registers
+	for i := d.curInsBufferWriteIndex; i != d.curInsBufferWriteIndex-insBufferStride; i = (i + insBufferStride) % len(d.insBuffer) {
+		registers := cpu.ReadFromArray(d.insBuffer[:], i)
+		opcode := d.insBuffer[i+12+0]
+		l := d.insBuffer[i+12+2]
+		h := d.insBuffer[i+12+3]
+
+		var cb bool
+		if d.insBuffer[i+12+1] != 0x00 {
+			cb = true
+		}
+
+		ins := cpu.Decode(opcode, cb)
+		if !ins.Valid() {
+			continue
+		}
+
+		d.printInstruction(view, ins, l, h, registers, prevRegisters)
+		prevRegisters = registers
+	}
+
+	return nil
+}
+
+func (d *Debugger) printInstruction(
+	view *gocui.View,
+	ins cpu.Instruction,
+	l byte,
+	h byte,
+	regs cpu.Registers,
+	prev cpu.Registers,
+) {
+	prevStr := prev.String()
+	curStr := regs.String()
+
+	var final bytes.Buffer
+
+	if len(prevStr) != len(curStr) {
+		panic("len(prevStr) != len(curStr)")
+	}
+
+	var diff bool
+	for i, _ := range prevStr {
+		if prevStr[i] != curStr[i] {
+			if !diff {
+				diff = true
+				final.WriteByte(0x1B)
+				final.WriteString("[1;31m")
+			}
+		} else {
+			diff = false
+			final.WriteByte(0x1B)
+			final.WriteString("[0m")
+		}
+
+		final.WriteByte(curStr[i])
+	}
+
+	final.WriteByte(0x1B)
+	final.WriteString("[0m")
+
+	fmt.Fprintf(
+		view,
+		"%-22s %s\n",
+		ins.String(l, h),
+		final.String(),
+	)
+}
 
 func (d *Debugger) layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
@@ -67,6 +191,8 @@ func (d *Debugger) layout(g *gocui.Gui) error {
 	return nil
 }
 
+type keybindHandler func(g *gocui.Gui, v *gocui.View) error
+
 func (d *Debugger) initKeybinds() error {
 	binds := []struct {
 		handler keybindHandler
@@ -82,7 +208,7 @@ func (d *Debugger) initKeybinds() error {
 			"",
 			v.key,
 			gocui.ModNone,
-			d.proxyCallback(v.handler),
+			v.handler,
 		); err != nil {
 			return err
 		}
@@ -91,34 +217,11 @@ func (d *Debugger) initKeybinds() error {
 	return nil
 }
 
-type keybindHandler func(g *gocui.Gui, v *gocui.View) error
-
-func (d *Debugger) proxyCallback(cb keybindHandler) keybindHandler {
-	return func(g *gocui.Gui, v *gocui.View) error {
-		err := cb(g, v)
-		d.updateGUI(g)
-		return err
-	}
-}
-
 func (d *Debugger) cbStep(g *gocui.Gui, v *gocui.View) error {
-	if !d.pause.IsSet() {
-		return nil
-	}
-
-	d.stepOnce.Set()
-
 	return nil
 }
 
 func (d *Debugger) cbPause(g *gocui.Gui, v *gocui.View) error {
-	if d.pause.IsSet() {
-		d.clearInstructionsView()
-		d.pause.UnSet()
-	} else {
-		d.pause.Set()
-	}
-
 	return nil
 }
 

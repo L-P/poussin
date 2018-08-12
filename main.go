@@ -84,15 +84,22 @@ func run() error {
 	}
 	defer r.Close()
 
-	quit := make(chan bool)
+	emuClosed := make(chan bool)
+	rendererClosed := make(chan bool)
+	closeEmu := make(chan bool)
+	closeRenderer := make(chan bool)
 
-	go gb.Run(quit)
-	go r.Run(nextFrame, quit)
+	go gb.Run(closeEmu, emuClosed)
+	go r.Run(nextFrame, closeRenderer, rendererClosed)
 
 	select {
-	case <-quit:
+	case <-emuClosed:
+		closeRenderer <- true
+		<-rendererClosed
+	case <-rendererClosed:
+		closeEmu <- true
+		<-emuClosed
 	}
-	close(quit)
 
 	return nil
 }

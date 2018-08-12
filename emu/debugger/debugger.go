@@ -3,7 +3,7 @@ package debugger
 import (
 	"bytes"
 	"fmt"
-	"log"
+	"os"
 	"time"
 
 	"github.com/jroimartin/gocui"
@@ -19,12 +19,8 @@ type Debugger struct {
 	cpu *cpu.CPU
 	ppu *ppu.PPU
 
-	gui *gocui.Gui
-
-	// Flow control
-	quit     chan bool
-	pause    *abool.AtomicBool
-	stepOnce *abool.AtomicBool
+	gui    *gocui.Gui
+	closed *abool.AtomicBool
 
 	// View buffers
 	insBuffer              [insBufferStride * 256]byte
@@ -57,12 +53,10 @@ func New(c *cpu.CPU, p *ppu.PPU) (*Debugger, error) {
 	}
 
 	d := Debugger{
-		cpu: c,
-		ppu: p,
-		gui: gui,
-
-		pause:    abool.New(),
-		stepOnce: abool.New(),
+		cpu:    c,
+		ppu:    p,
+		gui:    gui,
+		closed: abool.New(),
 	}
 
 	d.gui.SetManagerFunc(d.layout)
@@ -74,26 +68,42 @@ func New(c *cpu.CPU, p *ppu.PPU) (*Debugger, error) {
 }
 
 func (d *Debugger) Close() {
-	d.pause.Set()
+	// If gocui/termbox was closed once alreay it will block on reading a channel
+	if !d.closed.IsSet() {
+		d.gui.Close()
+	}
+}
+
+func (d *Debugger) RunGUI(shouldClose <-chan bool) {
+	guiClosed := make(chan bool)
+	go func() {
+		if err := d.gui.MainLoop(); err != nil {
+			if err != gocui.ErrQuit && err.Error() != "invalid dimensions" {
+				fmt.Fprintln(os.Stderr, err)
+			}
+		}
+		guiClosed <- true
+	}()
+
+	select {
+	case <-shouldClose:
+		d.gui.Update(func(*gocui.Gui) error { return gocui.ErrQuit })
+		d.gui.Close()
+		<-guiClosed // wait for GUI to exit
+	case <-guiClosed:
+	}
+
+	d.closed.Set()
 	d.gui.Close()
 }
 
-func (d *Debugger) RunGUI(quit chan bool) {
-	d.quit = quit
-
-	if err := d.gui.MainLoop(); err != nil && err != gocui.ErrQuit {
-		// HACK: When using pprof gocui throws this, this is weird and should be investigated.
-		log.Printf("gocui.Gui.MainLoop stopped: %s", err)
-	}
-
-	quit <- true
+func (d *Debugger) Closed() bool {
+	return d.closed.IsSet()
 }
 
 func (d *Debugger) Panic(err error) {
 	d.lastCPUError = err
 	d.updateMessages()
-	d.pause.Set()
-	d.gui.Update(d.updateGUI)
 }
 
 // Update updates the debugger internal state from the current CPU/PPU state
@@ -103,28 +113,9 @@ func (d *Debugger) Update() {
 	d.updateMessages()
 	d.updateIORegisters()
 	d.updatePerfCounters()
-
-	if d.stepOnce.IsSet() {
-		d.stepOnce.UnSet()
-		d.pause.Set()
-		d.gui.Update(d.updateGUI)
-	}
-
-	for d.pause.IsSet() {
-		time.Sleep(time.Duration(16 * time.Millisecond))
-
-		if d.stepOnce.IsSet() {
-			break
-		}
-	}
 }
 
 func (d *Debugger) updateGUI(g *gocui.Gui) error {
-	// Don't update unpaused, we don't want our data to get written as we read it.
-	if !d.pause.IsSet() {
-		return nil
-	}
-
 	if err := d.updatePerfWindow(g); err != nil {
 		return err
 	}
@@ -191,145 +182,5 @@ func (d *Debugger) updatePerfCounters() {
 
 		d.framePerSecond = d.ppu.PushedFrames - d.frameCount
 		d.frameCount = d.ppu.PushedFrames
-
-		d.gui.Update(d.updatePerfWindow)
-		d.gui.Update(d.updateIORegistersWindow) // HACK-ish, using the perf refresh
-		d.gui.Update(d.updateMsgWindow)         // HACK-ish, using the perf refresh
 	}
-}
-
-func (d *Debugger) updateMsgWindow(g *gocui.Gui) error {
-	if d.msgBuffer.Len() <= 0 {
-		return nil
-	}
-
-	msgView, err := g.View("messages")
-	if err != nil {
-		return err
-	}
-
-	msgView.Clear()
-	fmt.Fprintln(msgView, d.msgBuffer.String())
-
-	return nil
-}
-
-func (d *Debugger) updateIORegistersWindow(g *gocui.Gui) error {
-	v, err := g.View("I/O registers")
-	if err != nil {
-		return err
-	}
-	v.Clear()
-
-	fmt.Fprintf(v, "IF:      %02X\n", d.ioIF)
-	fmt.Fprintf(v, "IE:      %02X\n", d.ioIE)
-	fmt.Fprintf(v, "IMaster: %t\n", d.ioIMaster)
-	fmt.Fprintf(v, "DIV:     %02X\n", d.ioDIV)
-	fmt.Fprintf(v, "TMA:     %02X\n", d.ioTMA)
-	fmt.Fprintf(v, "TAC:     %02X\n", d.ioTAC)
-	fmt.Fprintf(v, "TIMA:    %02X\n", d.ioTIMA)
-
-	return nil
-}
-
-func (d *Debugger) updatePerfWindow(g *gocui.Gui) error {
-	v, err := g.View("performance")
-	if err != nil {
-		return err
-	}
-	v.Clear()
-	fmt.Fprintf(v, "OPS: %d\nFPS: %d", d.opPerSecond, d.framePerSecond)
-
-	return nil
-}
-
-func (d *Debugger) updateInsWindow(g *gocui.Gui) error {
-	if !d.pause.IsSet() {
-		return nil
-	}
-
-	view, err := g.View("instructions")
-	if err != nil {
-		return err
-	}
-
-	var prevRegisters cpu.Registers
-	for i := d.curInsBufferWriteIndex; i != d.curInsBufferWriteIndex-insBufferStride; i = (i + insBufferStride) % len(d.insBuffer) {
-		registers := cpu.ReadFromArray(d.insBuffer[:], i)
-		opcode := d.insBuffer[i+12+0]
-		l := d.insBuffer[i+12+2]
-		h := d.insBuffer[i+12+3]
-
-		var cb bool
-		if d.insBuffer[i+12+1] != 0x00 {
-			cb = true
-		}
-
-		ins := cpu.Decode(opcode, cb)
-		if !ins.Valid() {
-			continue
-		}
-
-		d.printInstruction(view, ins, l, h, registers, prevRegisters)
-		prevRegisters = registers
-	}
-
-	return nil
-}
-
-func (d *Debugger) printInstruction(
-	view *gocui.View,
-	ins cpu.Instruction,
-	l byte,
-	h byte,
-	regs cpu.Registers,
-	prev cpu.Registers,
-) {
-	prevStr := prev.String()
-	curStr := regs.String()
-
-	var final bytes.Buffer
-
-	if len(prevStr) != len(curStr) {
-		panic("len(prevStr) != len(curStr)")
-	}
-
-	var diff bool
-	for i, _ := range prevStr {
-		if prevStr[i] != curStr[i] {
-			if !diff {
-				diff = true
-				final.WriteByte(0x1B)
-				final.WriteString("[1;31m")
-			}
-		} else {
-			diff = false
-			final.WriteByte(0x1B)
-			final.WriteString("[0m")
-		}
-
-		final.WriteByte(curStr[i])
-	}
-
-	final.WriteByte(0x1B)
-	final.WriteString("[0m")
-
-	fmt.Fprintf(
-		view,
-		"%-22s %s\n",
-		ins.String(l, h),
-		final.String(),
-	)
-}
-
-func (d *Debugger) Pause() {
-	d.pause.Set()
-}
-
-func (d *Debugger) clearInstructionsView() {
-	v, err := d.gui.View("instructions")
-	if err != nil {
-		return
-	}
-	v.Clear()
 }
