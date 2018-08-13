@@ -75,7 +75,9 @@ func (c *CPU) WriteIO(addr uint16, value byte) {
 		c.Mem[IODIV] = 0
 		return
 	case IOSB:
-		c.SBBuffer.WriteByte(value)
+		if c.EnableDebug {
+			c.SBBuffer.WriteByte(value)
+		}
 		c.Mem[IOSB] = value
 	case IODisableBootROM:
 		c.Mem[IODisableBootROM] = 1 // Boot ROM can never be re-enabled

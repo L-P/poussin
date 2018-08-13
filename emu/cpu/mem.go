@@ -2,24 +2,45 @@ package cpu
 
 // Reads a byte from mapped memory
 func (c *CPU) Fetch(addr uint16) byte {
+	var v byte
 	switch AddrToMemType(addr) {
 	case ROM0:
-		return c.FetchROM0(addr)
+		v = c.FetchROM0(addr)
 	case ROMX:
-		return c.FetchROMX(addr)
+		v = c.FetchROMX(addr)
 	case VRAM:
-		return c.PPU.Fetch(addr)
+		v = c.PPU.Fetch(addr)
 	case IO:
-		return c.FetchIO(addr)
+		v = c.FetchIO(addr)
 	case IERegister:
-		return c.FetchIE()
+		v = c.FetchIE()
 	default:
-		return c.Mem[addr]
+		v = c.Mem[addr]
 	}
+
+	if c.EnableDebug && c.InCycle {
+		c.MemIOBuffer.WriteByte(byte(c.PC & 0x00FF))
+		c.MemIOBuffer.WriteByte(byte((c.PC & 0xFF00) >> 8))
+		c.MemIOBuffer.WriteByte(0x01)
+		c.MemIOBuffer.WriteByte(byte(addr & 0x00FF))
+		c.MemIOBuffer.WriteByte(byte((addr & 0xFF00) >> 8))
+		c.MemIOBuffer.WriteByte(v)
+	}
+
+	return v
 }
 
 // Writes a byte to mapped memory
 func (c *CPU) Write(addr uint16, b byte) {
+	if c.EnableDebug && c.InCycle {
+		c.MemIOBuffer.WriteByte(byte(c.PC & 0x00FF))
+		c.MemIOBuffer.WriteByte(byte((c.PC & 0xFF00) >> 8))
+		c.MemIOBuffer.WriteByte(0x02)
+		c.MemIOBuffer.WriteByte(byte(addr & 0x00FF))
+		c.MemIOBuffer.WriteByte(byte((addr & 0xFF00) >> 8))
+		c.MemIOBuffer.WriteByte(b)
+	}
+
 	switch AddrToMemType(addr) {
 	case IO:
 		c.WriteIO(addr, b)
@@ -105,22 +126,34 @@ func AddrToMemType(addr uint16) MemType {
 
 // MemTypeName returns a MemType name as a string
 func MemTypeName(t MemType) string {
-	types := map[MemType]string{
-		ROM0:       "ROM0",
-		ROMX:       "ROMX",
-		VRAM:       "VRAM",
-		SRAM:       "SRAM",
-		WRAM0:      "WRAM0",
-		WRAMX:      "WRAMX",
-		Echo:       "Echo",
-		OAM:        "OAM",
-		Unused:     "Unused",
-		IO:         "IO",
-		HRAM:       "HRAM",
-		IERegister: "IERegister",
+	switch t {
+	case ROM0:
+		return "ROM0"
+	case ROMX:
+		return "ROMX"
+	case VRAM:
+		return "VRAM"
+	case SRAM:
+		return "SRAM"
+	case WRAM0:
+		return "WRAM0"
+	case WRAMX:
+		return "WRAMX"
+	case Echo:
+		return "Echo"
+	case OAM:
+		return "OAM"
+	case Unused:
+		return "Unused"
+	case IO:
+		return "IO"
+	case HRAM:
+		return "HRAM"
+	case IERegister:
+		return "IERegister"
 	}
 
-	return types[t]
+	panic("unreachable")
 }
 
 func (c *CPU) WriteIE(value byte) {

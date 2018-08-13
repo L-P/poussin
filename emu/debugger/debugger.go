@@ -16,6 +16,11 @@ import (
 
 // registers + opcode + CB + low arg + high arg
 const insBufferStride = 12 + 4
+const insBufferCount = 128
+
+// PC + r/w + addr + value
+const memBufferStride = 2 + 1 + 2 + 1
+const memBufferCount = 128
 
 // Debugger is a CLI for debugging a GameBoy ROM execution.
 type Debugger struct {
@@ -41,8 +46,10 @@ type Debugger struct {
 	callDepth int
 
 	// View buffers
-	insBuffer              [insBufferStride * 128]byte
+	insBuffer              [insBufferStride * insBufferCount]byte
 	curInsBufferWriteIndex int
+	memBuffer              [memBufferStride * memBufferCount]byte
+	curMemBufferWriteIndex int
 	msgBuffer              bytes.Buffer
 	lastCPUError           error
 
@@ -156,6 +163,7 @@ func (d *Debugger) Update() {
 	d.Lock()
 
 	d.updateInstructions()
+	d.updateMemory()
 	d.updateMessages()
 	d.updateIORegisters()
 	d.updateMiscCounters()
@@ -309,4 +317,33 @@ func (d *Debugger) updateMiscCounters() {
 		d.framePerSecond = d.ppu.PushedFrames - d.frameCount
 		d.frameCount = d.ppu.PushedFrames
 	}
+}
+
+func (d *Debugger) updateMemory() {
+	if d.cpu.MemIOBuffer.Len() <= 0 {
+		return
+	}
+
+	if (d.cpu.MemIOBuffer.Len() % memBufferStride) != 0 {
+		panic("garbage in cpu.MemIOBuffer")
+	}
+
+	buf := make([]byte, 6)
+	for d.cpu.MemIOBuffer.Len() > 0 {
+		n, err := d.cpu.MemIOBuffer.Read(buf)
+		if err != nil {
+			panic(err)
+		}
+		if n != memBufferStride {
+			panic("n != memBufferStride")
+		}
+
+		for i, v := range buf {
+			d.memBuffer[d.curMemBufferWriteIndex+i] = v
+		}
+
+		d.curMemBufferWriteIndex = (d.curMemBufferWriteIndex + memBufferStride) % len(d.memBuffer)
+	}
+
+	d.cpu.MemIOBuffer.Reset()
 }

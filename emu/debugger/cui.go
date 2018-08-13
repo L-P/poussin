@@ -13,9 +13,10 @@ import (
 func (d *Debugger) layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 
-	iW := 17
-	msgW := maxX - (iW * 2)
+	iW := 16
+	msgW := maxX - (iW * 2) - 1
 	msgH := 9
+	memW := 16
 
 	views := []struct {
 		name string
@@ -28,6 +29,13 @@ func (d *Debugger) layout(g *gocui.Gui) error {
 			"instructions",
 			0,
 			0,
+			maxX - memW - 1,
+			maxY - msgH - 1,
+		},
+		{
+			"memory",
+			maxX - memW,
+			0,
 			maxX - 1,
 			maxY - msgH - 1,
 		},
@@ -39,7 +47,7 @@ func (d *Debugger) layout(g *gocui.Gui) error {
 			maxY - 1,
 		},
 		{
-			"I/O registers",
+			"IO registers",
 			msgW + 1,
 			maxY - msgH,
 			msgW + iW,
@@ -62,6 +70,8 @@ func (d *Debugger) layout(g *gocui.Gui) error {
 
 			view.Title = v.name
 			switch v.name {
+			case "memory":
+				view.Autoscroll = true
 			case "instructions":
 				view.Autoscroll = true
 			case "messages":
@@ -98,6 +108,10 @@ func (d *Debugger) updateGUI(g *gocui.Gui) error {
 		return err
 	}
 
+	if err := d.updateMemoryWindow(g); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -118,7 +132,7 @@ func (d *Debugger) updateMsgWindow(g *gocui.Gui) error {
 }
 
 func (d *Debugger) updateIORegistersWindow(g *gocui.Gui) error {
-	v, err := g.View("I/O registers")
+	v, err := g.View("IO registers")
 	if err != nil {
 		return err
 	}
@@ -166,12 +180,43 @@ func (d *Debugger) updateMiscWindow(g *gocui.Gui) error {
 	return nil
 }
 
+func (d *Debugger) updateMemoryWindow(g *gocui.Gui) error {
+	v, err := g.View("memory")
+	if err != nil {
+		return err
+	}
+
+	v.Clear()
+	for j := 0; j < len(d.memBuffer)/memBufferStride; j++ {
+		i := (d.curMemBufferWriteIndex + (j * memBufferStride)) % len(d.memBuffer)
+
+		rw := d.memBuffer[i+2]
+		if rw != 0x01 && rw != 0x02 {
+			return nil
+		}
+
+		rwFlag := 'R'
+		if rw == 0x02 {
+			rwFlag = 'W'
+		}
+
+		pc := uint16(d.memBuffer[i]) | (uint16(d.memBuffer[i+1]) << 8)
+		addr := uint16(d.memBuffer[i+3]) | (uint16(d.memBuffer[i+4]) << 8)
+		val := d.memBuffer[i+5]
+
+		fmt.Fprintf(v, "%04X %c %04X %02X\n", pc, rwFlag, addr, val)
+	}
+
+	return nil
+}
+
 func (d *Debugger) updateInsWindow(g *gocui.Gui) error {
 	view, err := g.View("instructions")
 	if err != nil {
 		return err
 	}
 
+	view.Clear()
 	var prevRegisters cpu.Registers
 	for j := 0; j < len(d.insBuffer)/insBufferStride; j++ {
 		i := (d.curInsBufferWriteIndex + (j * insBufferStride)) % len(d.insBuffer)
@@ -234,7 +279,7 @@ func (d *Debugger) printInstruction(
 
 	fmt.Fprintf(
 		view,
-		"%-22s %s\n",
+		"%-18s %s\n",
 		ins.String(l, h),
 		final.String(),
 	)

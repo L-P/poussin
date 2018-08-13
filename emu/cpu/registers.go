@@ -153,7 +153,7 @@ func (r *Registers) String() string {
 	}
 
 	return fmt.Sprintf(
-		"A:%02X BC:%04X DE:%04X HL:%04X SP:%04X PC:%04X Flags:%s",
+		"A:%02X BC:%04X DE:%04X HL:%04X SP:%04X PC:%04X %s",
 		r.A, r.BC, r.DE, r.HL, r.SP, r.PC, flags,
 	)
 }

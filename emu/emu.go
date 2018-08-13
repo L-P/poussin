@@ -41,20 +41,26 @@ func (g *Gameboy) LoadROM(rom []byte) error {
 
 func (g *Gameboy) Run(shouldClose <-chan bool, closed chan<- bool) {
 	go g.debugger.RunGUI(shouldClose)
+	defer close(closed)
 
 	for !g.debugger.Closed() {
 		cycles, err := g.cpu.Step()
 		for i := 0; i < cycles; i++ {
 			g.ppu.Cycle()
 		}
-		g.debugger.Update()
 
-		if err != nil {
-			g.debugger.Panic(err)
+		if g.cpu.EnableDebug {
+			g.debugger.Update()
+
+			if err != nil {
+				g.debugger.Panic(err)
+			}
+		} else {
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
-
-	close(closed)
 }
 
 func (g *Gameboy) Close() {

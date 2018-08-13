@@ -12,47 +12,85 @@ import (
 type CPU struct {
 	Registers
 
-	Mem  [0xFFFF]byte
-	Boot [256]byte
-	ROM  [1024 * 1024 * 8]byte // Per Wikipedia, a GB ROM is 8 MiB max
-
+	// PPU is our pixel processing unit, the CPU access it for VRAM access,
+	// VBlank interrupts, some I/O registers, and more.
 	PPU *ppu.PPU
 
-	// Set by the STOP instruction, reset by interrupts
+	// Mem holds the unmapped memory for the whole addressable space, thus it
+	// lacks VRAM, ROM0/ROMX, mirrored memory, etc.
+	Mem [0xFFFF]byte
+
+	// Boot holds the bootstrap ROM mapped to 0x0000-0x00FF on DMG
+	Boot [256]byte
+
+	// ROM holds the ROM mapped to ROM0/ROMX
+	ROM [1024 * 1024 * 8]byte // Per Wikipedia, a GB ROM is 8 MiB max
+
+	// Stopped is set by the STOP instruction, it can only be reset by interrupts.
 	Stopped bool
 
-	// For debugging purposes
-	LastOpcode      byte
-	LastOpcodeWasCB bool
-	LastLowArg      byte
-	LastHighArg     byte
-	SBBuffer        bytes.Buffer // bytes written to IOSB
+	// {{{ Debug
+	// EnableDebug is the master flag for enabling debug values.
+	EnableDebug bool
 
-	// Adressable at 0xFFFF
-	InterruptEnable byte
+	// InCycle is true when the CPU is executing to allow tracking memory use
+	// without polluting the buffers when the debugger reads memory outside of
+	// a cycle.
+	InCycle bool
+
+	// MemIOBuffer contains all memory reads/writes (except for instruction
+	// fetching) since it was last cleared. It holds six bytes per fetch/write,
+	// two for the current PC, one for read (0x01) or write (0x02), two for the
+	// address of the read (little-endian), and one for the value.
+	MemIOBuffer bytes.Buffer
+
+	// LastOpcode is the last opcode executed by the CPU
+	LastOpcode byte
+
+	// LastOpcodeWasCB indicates if LastOpcode was from the CB opcode table
+	LastOpcodeWasCB bool
+
+	// LastLowArg contains the LSB of the 16b argument given to the last
+	// executed opcode if applicable.
+	LastLowArg byte
+
+	// LastHighArg contains the MSB of the 16b argument given to the last
+	// executed opcode if applicable.
+	LastHighArg byte
+
+	// SBBuffer contains the bytes written to the serial I/O, it's the debugger
+	// responsibility to clear this buffer (not concurenttly with Execute of course).
+	SBBuffer bytes.Buffer // bytes written to IOSB
+	// }}} Debug
+
+	InterruptEnable byte // Adressable at 0xFFFF
 	InterruptTimer  bool
 
-	// Interrupt Master Flag, not addressable
+	// InterruptMaster is IME, the global hidden flag set by EI and DI.
 	InterruptMaster bool
 
-	// Switching to CB opcode (0xCB for code bank?) is an instruction in
-	// itself, when this flag is set it means the next opcode we read will be
+	// NextOpcodeIsCB is true when the next opcode has to be decoded from the
+	// CB opcode table, it's set by the PREFIX CB instruction.
 	// from the CB opcodes
 	NextOpcodeIsCB bool
 
-	// Current clock cycle number
+	// Cycle holds the current clock cycle number, it is never reset, which may
+	// bite me later, I don't know. Why would you let the emulator run for a
+	// month anyway?
 	Cycle int
 
-	// On which cycle we last updated the timer registers
+	// LastTimerUpdateCycle is set with the current Cycle when we update the
+	// timer registers (DIV, TMA, TIMA, TAC)
 	LastTimerUpdateCycle int
 
-	// TIMA overflowed on last cycle
+	// TimerOverflow is true when TIMA overflowed on the previous cycle
 	TimerOverflow bool
 }
 
 func New(ppu *ppu.PPU) CPU {
 	return CPU{
-		PPU: ppu,
+		PPU:         ppu,
+		EnableDebug: true,
 	}
 }
 
@@ -88,10 +126,12 @@ func (c *CPU) Step() (int, error) {
 		h = c.Fetch(c.PC + 2)
 	}
 
-	c.LastOpcode = opcode
-	c.LastOpcodeWasCB = cb // CB is reset after Decode, hence cb
-	c.LastLowArg = l
-	c.LastHighArg = h
+	if c.EnableDebug {
+		c.LastOpcode = opcode
+		c.LastOpcodeWasCB = cb // CB is reset after Decode, hence cb
+		c.LastLowArg = l
+		c.LastHighArg = h
+	}
 
 	return c.Execute(ins, l, h)
 }
@@ -111,6 +151,8 @@ func (c *CPU) Decode(opcode byte) (Instruction, error) {
 }
 
 func (c *CPU) Execute(ins Instruction, l, h byte) (int, error) {
+	c.InCycle = true
+	defer func() { c.InCycle = false }()
 	if ins.Func == nil {
 		return 0, fmt.Errorf("no function defined for %s", ins.Name)
 	}
