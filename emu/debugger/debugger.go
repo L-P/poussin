@@ -35,6 +35,7 @@ type Debugger struct {
 	flowState      int32
 	stepToPC       uint16
 	stopWhenSB     byte
+	stepToOpcode   byte
 	requestedDepth int
 	// _will_ be negative, nothing prevents you from pushing the stack and RET without having a CALL
 	callDepth int
@@ -72,6 +73,7 @@ const (
 	FlowStepToPC
 	FlowStepOver
 	FlowStopWhenSB
+	FlowStepToOpcode
 )
 
 // New creates a new debugger instance.
@@ -179,6 +181,10 @@ func (d *Debugger) flowControl() {
 		}
 	case FlowStepToPC:
 		if d.cpu.PC == d.stepToPC {
+			atomic.StoreInt32(&d.flowState, FlowPause)
+		}
+	case FlowStepToOpcode:
+		if d.cpu.LastOpcode == d.stepToOpcode && !d.cpu.LastOpcodeWasCB {
 			atomic.StoreInt32(&d.flowState, FlowPause)
 		}
 	}
