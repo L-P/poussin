@@ -124,15 +124,29 @@ func (d *Debugger) updateIORegistersWindow(g *gocui.Gui) error {
 	}
 	v.Clear()
 
-	fmt.Fprintf(v, "IF:      %02X\n", d.ioIF)
-	fmt.Fprintf(v, "IE:      %02X\n", d.ioIE)
-	fmt.Fprintf(v, "IME:     %t\n", d.ioIMaster)
+	fmt.Fprintf(v, "IF:      %s\n", ieString(d.ioIF))
+	fmt.Fprintf(v, "IE:      %s\n", ieString(d.ioIE))
+	fmt.Fprintf(v, "IME:     %t\n", d.ioIME)
 	fmt.Fprintf(v, "DIV:     %02X\n", d.ioDIV)
 	fmt.Fprintf(v, "TMA:     %02X\n", d.ioTMA)
 	fmt.Fprintf(v, "TAC:     %02X\n", d.ioTAC)
 	fmt.Fprintf(v, "TIMA:    %02X\n", d.ioTIMA)
 
 	return nil
+}
+
+var ieFlagNames = [5]byte{'V', 'L', 'T', 'S', 'J'}
+
+// Returns a human-readable version of the IE flag
+func ieString(v byte) string {
+	ret := [5]byte{'-', '-', '-', '-', '-'}
+	for i := range ieFlagNames {
+		if (v & (1 << byte(i))) > 0 {
+			ret[i] = ieFlagNames[i]
+		}
+	}
+
+	return fmt.Sprintf("%s", ret)
 }
 
 func (d *Debugger) updateMiscWindow(g *gocui.Gui) error {

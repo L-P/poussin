@@ -47,13 +47,13 @@ type Debugger struct {
 	lastCPUError           error
 
 	// I/O registers
-	ioIF      byte
-	ioIE      byte
-	ioIMaster bool
-	ioDIV     byte
-	ioTMA     byte
-	ioTAC     byte
-	ioTIMA    byte
+	ioIF   byte
+	ioIE   byte
+	ioIME  bool
+	ioDIV  byte
+	ioTMA  byte
+	ioTAC  byte
+	ioTIMA byte
 
 	// Performance counters
 	opCount         int
@@ -195,9 +195,9 @@ func (d *Debugger) flowControl() {
 }
 
 func (d *Debugger) updateIORegisters() {
-	d.ioIF = d.cpu.Mem[cpu.IOIF]
-	d.ioIE = d.cpu.InterruptEnable
-	d.ioIMaster = d.cpu.InterruptMaster
+	d.ioIF = d.cpu.FetchIF()
+	d.ioIE = d.cpu.FetchIE()
+	d.ioIME = d.cpu.InterruptMaster
 	d.ioDIV = d.cpu.Mem[cpu.IODIV]
 	d.ioTMA = d.cpu.Mem[cpu.IOTMA]
 	d.ioTAC = d.cpu.Mem[cpu.IOTAC]
