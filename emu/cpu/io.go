@@ -11,7 +11,7 @@ const (
 	IODIV  = 0xFF04 // Divider register (R/W*)
 	IOTIMA = 0xFF05 // Timer counter (R/W)
 	IOTMA  = 0xFF06 // Timer modulo (R/W)
-	IOTAC  = 0xFF07 // TImer control (R/W)
+	IOTAC  = 0xFF07 // Timer control (R/W)
 
 	IODisableBootROM = 0xFF50
 	IOIF             = 0xFF0F // Interrupt flag
@@ -58,6 +58,8 @@ func (c *CPU) FetchIO(addr uint16) byte {
 		return c.Mem[IODisableBootROM]
 	case IOIF:
 		return c.FetchIF()
+	case IOTAC:
+		return c.FetchTAC()
 	default:
 		// fmt.Printf("unhandled I/O fetch at %02X\n", addr)
 		return c.Mem[addr]
@@ -83,6 +85,8 @@ func (c *CPU) WriteIO(addr uint16, value byte) {
 		c.Mem[IODisableBootROM] = 1 // Boot ROM can never be re-enabled
 	case IOIF:
 		c.WriteIF(value)
+	case IOTAC:
+		c.WriteTAC(value)
 	default:
 		c.Mem[addr] = value
 		// fmt.Printf("unhandled I/O write at %02X\n", addr)
@@ -90,10 +94,31 @@ func (c *CPU) WriteIO(addr uint16, value byte) {
 }
 
 func (c *CPU) WriteIF(value byte) {
-	c.Mem[IOIF] = value
+	c.Mem[IOIF] = 0xE0 | value
 }
 
 func (c *CPU) FetchIF() byte {
 	// First 3 bits are always set
-	return 0xE0 | c.Mem[IOIF]
+	return c.Mem[IOIF] | 0xE0
+}
+
+func (c *CPU) IFIsSet(mask byte) bool {
+	return c.Mem[IOIF]&mask == mask
+}
+
+func (c *CPU) SetIF(mask byte) {
+	c.Mem[IOIF] |= mask
+}
+
+func (c *CPU) UnSetIF(mask byte) {
+	c.Mem[IOIF] &^= mask
+}
+
+func (c *CPU) WriteTAC(value byte) {
+	c.Mem[IOTAC] = value | 0xF8
+}
+
+func (c *CPU) FetchTAC() byte {
+	// First 3 bits are always set
+	return c.Mem[IOTAC] | 0xF8
 }

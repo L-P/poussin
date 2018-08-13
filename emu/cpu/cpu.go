@@ -63,8 +63,9 @@ type CPU struct {
 	SBBuffer bytes.Buffer // bytes written to IOSB
 	// }}} Debug
 
+	// InterruptEnable contains the IE flag, as we only keep 0xFFFF worth of
+	// memory we can't address it otherwise.
 	InterruptEnable byte // Adressable at 0xFFFF
-	InterruptTimer  bool
 
 	// InterruptMaster is IME, the global hidden flag set by EI and DI.
 	InterruptMaster bool
@@ -82,34 +83,34 @@ type CPU struct {
 	// LastTimerUpdateCycle is set with the current Cycle when we update the
 	// timer registers (DIV, TMA, TIMA, TAC)
 	LastTimerUpdateCycle int
-
-	// TimerOverflow is true when TIMA overflowed on the previous cycle
-	TimerOverflow bool
 }
 
 func New(ppu *ppu.PPU) CPU {
-	return CPU{
+	c := CPU{
 		PPU:         ppu,
 		EnableDebug: true,
 	}
+
+	c.WriteIF(0)
+	c.WriteTAC(0)
+
+	return c
 }
 
 func (c *CPU) Step() (int, error) {
+	defer c.UpdateTimer()
+
 	if cycles := c.CheckInterrupts(); cycles > 0 {
 		c.InterruptMaster = false
 		c.Cycle += cycles
 		c.Stopped = false
-		c.UpdateTimer()
 		return cycles, nil
 	}
 
 	if c.Stopped {
 		c.Cycle += 4
-		c.UpdateTimer()
 		return 4, nil
 	}
-
-	c.UpdateTimer()
 
 	opcode := c.Fetch(c.PC)
 	cb := c.NextOpcodeIsCB
@@ -184,8 +185,10 @@ func (c *CPU) LoadROM(data []byte) error {
 }
 
 func (c *CPU) DoInterrupt(addr uint16) int {
+	c.InCycle = true
 	c.StackPush16b(c.PC)
 	c.PC = addr
+	c.InCycle = false
 	return 20
 }
 
@@ -194,8 +197,9 @@ func (c *CPU) CheckInterrupts() int {
 		return 0
 	}
 
-	if c.InterruptTimer && c.IEEnabled(IETimer) {
-		c.InterruptTimer = false
+	if c.IFIsSet(IETimer) && c.IEEnabled(IETimer) {
+		c.UnSetIF(IETimer)
+		c.Mem[IOTIMA] = c.Mem[IOTMA]
 		return c.DoInterrupt(0x0050)
 	}
 
@@ -212,31 +216,22 @@ func (c *CPU) UpdateTimer() {
 	if delta <= 0 {
 		return
 	}
+	c.LastTimerUpdateCycle = c.Cycle
 
 	c.Mem[IODIV] += byte(delta / 4)
 	c.UpdateTimerInterrupt(delta)
 }
 
 func (c *CPU) UpdateTimerInterrupt(delta int) {
+	// No timer flag, no TIMA increment.
 	if (c.Mem[IOTAC] & (1 << 2)) == 0x00 {
 		return
 	}
 
-	if c.TimerOverflow {
-		c.Mem[IOTIMA] = c.Mem[IOTMA]
-		c.InterruptTimer = true
-		c.TimerOverflow = false
-		return
+	// TIMA overflow, set IF timer interrupt
+	if (c.Mem[IOTIMA] + (byte(delta) / 4)) < c.Mem[IOTIMA] {
+		c.SetIF(IETimer)
 	}
 
-	c.TimerOverflow = false
-
-	for i := 0; i < delta; i += 4 {
-		c.Mem[IOTIMA]++
-
-		// TIMA overflow
-		if c.Mem[IOTIMA] == 0x00 {
-			c.TimerOverflow = true
-		}
-	}
+	c.Mem[IOTIMA] += byte(delta) / 4
 }

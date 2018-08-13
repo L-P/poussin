@@ -939,6 +939,11 @@ func i_add_hl_nn(name string) InstructionImplementation {
 // Loads SP + l into HL
 func i_ldhl_sp_r8(c *CPU, l, _ byte) {
 	c.HL = signedOffset(c.SP, l)
+
+	c.FlagZero = false
+	c.FlagSubstract = false
+	c.FlagCarry = (c.HL&0x00FF)+uint16(l) > 0x00FF
+	c.FlagHalfCarry = (c.HL&0x000F)+uint16(l&0x0F) > 0x000F
 }
 
 // Decimal adjust register A
