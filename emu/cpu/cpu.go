@@ -70,11 +70,6 @@ type CPU struct {
 	// InterruptMaster is IME, the global hidden flag set by EI and DI.
 	InterruptMaster bool
 
-	// NextOpcodeIsCB is true when the next opcode has to be decoded from the
-	// CB opcode table, it's set by the PREFIX CB instruction.
-	// from the CB opcodes
-	NextOpcodeIsCB bool
-
 	// Cycle holds the current clock cycle number, it is never reset, which may
 	// bite me later, I don't know. Why would you let the emulator run for a
 	// month anyway?
@@ -123,8 +118,14 @@ func (c *CPU) Step() (int, error) {
 	}
 
 	opcode := c.Fetch(c.PC)
-	cb := c.NextOpcodeIsCB
-	ins, err := c.Decode(opcode)
+	cb := opcode == 0xCB
+	if cb {
+		c.PC++
+		opcode = c.Fetch(c.PC)
+	}
+	c.LastOpcodeWasCB = cb
+
+	ins, err := c.Decode(opcode, cb)
 	if err != nil {
 		return 0, err
 	}
@@ -137,26 +138,22 @@ func (c *CPU) Step() (int, error) {
 		h = c.Fetch(c.PC + 2)
 	}
 
-	if c.EnableDebug {
-		c.LastOpcode = opcode
-		c.LastOpcodeWasCB = cb // CB is reset after Decode, hence cb
-		c.LastLowArg = l
-		c.LastHighArg = h
-	}
+	c.LastOpcode = opcode
+	c.LastLowArg = l
+	c.LastHighArg = h
 
 	return c.Execute(ins, l, h)
 }
 
-func (c *CPU) Decode(opcode byte) (Instruction, error) {
-	ins := Decode(opcode, c.NextOpcodeIsCB)
+func (c *CPU) Decode(opcode byte, cb bool) (Instruction, error) {
+	ins := Decode(opcode, cb)
 	if !ins.Valid() {
 		return Instruction{}, fmt.Errorf(
 			"opcode not found: 0x%02X (CB: %t)",
 			opcode,
-			c.NextOpcodeIsCB,
+			cb,
 		)
 	}
-	c.NextOpcodeIsCB = false
 
 	return ins, nil
 }

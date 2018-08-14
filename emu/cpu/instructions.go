@@ -265,7 +265,7 @@ var instructionsMap = map[byte]Instruction{
 	0xE1: {1, 12, "POP HL", i_pop_nn("HL")},
 	0xF1: {1, 12, "POP AF", i_pop_af},
 
-	0xCB: {1, 4, "PREFIX CB", i_prefix_cb},
+	0xCB: {1, 0, "PREFIX CB", i_nop},
 	0xCD: {3, 24, "CALL $%02X%02X", i_call},
 	0xC4: {3, 24, "CALL NZ,$%02X%02X", i_call_nz},
 	0xCC: {3, 24, "CALL Z,$%02X%02X", i_call_z},
@@ -572,11 +572,6 @@ func i_or_n(name byte) InstructionImplementation {
 		c.ClearFlags()
 		c.FlagZero = c.A == 0
 	}
-}
-
-// Tells our virtual CPU the next instruction is from the CB block
-func i_prefix_cb(c *CPU, _, _ byte) {
-	c.NextOpcodeIsCB = true
 }
 
 // Pushes the address of the next instruction onto the stack and jump
