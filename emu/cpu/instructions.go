@@ -250,10 +250,10 @@ var instructionsMap = map[byte]Instruction{
 
 	0xC9: {1, 8, "RET", i_ret},
 	0xD9: {1, 8, "RETI", i_reti},
-	0xC0: {1, 8, "RET Z", i_ret_z},
-	0xC8: {1, 8, "RET NZ", i_ret_nz},
-	0xD0: {1, 8, "RET C", i_ret_c},
-	0xD8: {1, 8, "RET NC", i_ret_nc},
+	0xC0: {1, 8, "RET NZ", i_ret_nz},
+	0xC8: {1, 8, "RET Z", i_ret_z},
+	0xD0: {1, 8, "RET NC", i_ret_nc},
+	0xD8: {1, 8, "RET C", i_ret_c},
 
 	0xC5: {1, 16, "PUSH BC", i_push_nn("BC")},
 	0xD5: {1, 16, "PUSH DE", i_push_nn("DE")},
