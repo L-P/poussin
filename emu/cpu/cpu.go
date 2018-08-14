@@ -81,8 +81,13 @@ type CPU struct {
 	Cycle int
 
 	// LastTimerUpdateCycle is set with the current Cycle when we update the
-	// timer registers (DIV, TMA, TIMA, TAC)
+	// timer registers (DIV, TMA, TIMA)
 	LastTimerUpdateCycle int
+
+	// On DMG DIV is implemented as a 16b value that increases on every cycle,
+	// the actual DIV register value is the upper 8 bits of this internal
+	// register.
+	InternalDIV uint16
 }
 
 func New(ppu *ppu.PPU) CPU {
@@ -91,14 +96,19 @@ func New(ppu *ppu.PPU) CPU {
 		EnableDebug: true,
 	}
 
-	c.WriteIF(0)
-	c.WriteTAC(0)
+	c.Reset()
 
 	return c
 }
 
+func (c *CPU) Reset() {
+	c.InternalDIV = 0
+	c.WriteIF(0)
+	c.WriteTAC(0)
+}
+
 func (c *CPU) Step() (int, error) {
-	defer c.UpdateTimer()
+	defer c.UpdateTimers()
 
 	if cycles := c.CheckInterrupts(); cycles > 0 {
 		c.InterruptMaster = false
@@ -211,27 +221,41 @@ func (c *CPU) CheckInterrupts() int {
 	return 0
 }
 
-func (c *CPU) UpdateTimer() {
+func (c *CPU) UpdateTimers() {
 	delta := c.Cycle - c.LastTimerUpdateCycle
 	if delta <= 0 {
 		return
 	}
 	c.LastTimerUpdateCycle = c.Cycle
 
-	c.Mem[IODIV] += byte(delta / 4)
-	c.UpdateTimerInterrupt(delta)
-}
+	oldTIMA := c.Mem[IOTIMA]
+	oldIDIV := c.InternalDIV
+	c.InternalDIV += uint16(delta)
 
-func (c *CPU) UpdateTimerInterrupt(delta int) {
-	// No timer flag, no TIMA increment.
-	if (c.Mem[IOTAC] & (1 << 2)) == 0x00 {
-		return
+	var valMask uint16
+	var owMask uint16
+	if c.IsTACEnabled() {
+		switch c.FetchTAC() & TACSpeedMask {
+		case TACSpeed262:
+			valMask = 0x0F
+			owMask = 0x10
+		case TACSpeed65:
+			valMask = 0x3F
+			owMask = 0x40
+		case TACSpeed16:
+			valMask = 0xFF
+			owMask = 0x0100
+		case TACSpeed4:
+			valMask = 0x03FF
+			owMask = 0x0400
+		}
+
+		if (((oldIDIV & valMask) + (uint16(delta) & valMask)) & owMask) == owMask {
+			c.Mem[IOTIMA]++
+		}
 	}
 
-	// TIMA overflow, set IF timer interrupt
-	if (c.Mem[IOTIMA] + (byte(delta) / 4)) < c.Mem[IOTIMA] {
+	if oldTIMA > c.Mem[IOTIMA] {
 		c.SetIF(IETimer)
 	}
-
-	c.Mem[IOTIMA] += byte(delta) / 4
 }

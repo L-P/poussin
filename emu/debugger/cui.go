@@ -15,7 +15,7 @@ func (d *Debugger) layout(g *gocui.Gui) error {
 
 	iW := 16
 	msgW := maxX - (iW * 2) - 1
-	msgH := 9
+	msgH := 10
 	memW := 16
 
 	views := []struct {
@@ -142,6 +142,7 @@ func (d *Debugger) updateIORegistersWindow(g *gocui.Gui) error {
 	fmt.Fprintf(v, "IE:      %s\n", ieString(d.ioIE))
 	fmt.Fprintf(v, "IME:     %t\n", d.ioIME)
 	fmt.Fprintf(v, "DIV:     %02X\n", d.ioDIV)
+	fmt.Fprintf(v, "IDIV:    %04X\n", d.ioInternalDIV)
 	fmt.Fprintf(v, "TMA:     %02X\n", d.ioTMA)
 	fmt.Fprintf(v, "TAC:     %02X\n", d.ioTAC)
 	fmt.Fprintf(v, "TIMA:    %02X\n", d.ioTIMA)

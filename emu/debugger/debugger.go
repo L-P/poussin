@@ -54,13 +54,14 @@ type Debugger struct {
 	lastCPUError           error
 
 	// I/O registers
-	ioIF   byte
-	ioIE   byte
-	ioIME  bool
-	ioDIV  byte
-	ioTMA  byte
-	ioTAC  byte
-	ioTIMA byte
+	ioIF          byte
+	ioIE          byte
+	ioIME         bool
+	ioDIV         byte
+	ioTMA         byte
+	ioTAC         byte
+	ioTIMA        byte
+	ioInternalDIV uint16
 
 	// Performance counters
 	opCount         int
@@ -92,11 +93,12 @@ func New(c *cpu.CPU, p *ppu.PPU) (*Debugger, error) {
 	gui.InputEsc = true
 
 	d := Debugger{
-		cpu:      c,
-		ppu:      p,
-		gui:      gui,
-		closed:   abool.New(),
-		hasModal: abool.New(),
+		cpu:       c,
+		ppu:       p,
+		gui:       gui,
+		closed:    abool.New(),
+		hasModal:  abool.New(),
+		flowState: FlowPause,
 	}
 
 	d.gui.SetManagerFunc(d.layout)
@@ -206,10 +208,11 @@ func (d *Debugger) updateIORegisters() {
 	d.ioIF = d.cpu.FetchIF()
 	d.ioIE = d.cpu.FetchIE()
 	d.ioIME = d.cpu.InterruptMaster
-	d.ioDIV = d.cpu.Mem[cpu.IODIV]
-	d.ioTMA = d.cpu.Mem[cpu.IOTMA]
-	d.ioTAC = d.cpu.Mem[cpu.IOTAC]
-	d.ioTIMA = d.cpu.Mem[cpu.IOTIMA]
+	d.ioDIV = d.cpu.FetchIO(cpu.IODIV)
+	d.ioInternalDIV = d.cpu.InternalDIV
+	d.ioTMA = d.cpu.FetchIO(cpu.IOTMA)
+	d.ioTAC = d.cpu.FetchIO(cpu.IOTAC)
+	d.ioTIMA = d.cpu.FetchIO(cpu.IOTIMA)
 }
 
 func (d *Debugger) updateInstructions() {
