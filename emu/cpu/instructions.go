@@ -932,18 +932,19 @@ func i_add_hl_nn(name string) InstructionImplementation {
 
 		c.FlagSubstract = false
 		c.FlagCarry = c.HL < old
-		// TODO c.HalfCarry
+		// Half carry from bit 11, so a third carry?
+		c.FlagHalfCarry = ((old & 0x0FFF) + (*r & 0x0FFF)) > 0x0FFF
 	}
 }
 
 // Loads SP + l into HL
 func i_ldhl_sp_r8(c *CPU, l, _ byte) {
+	old := c.SP
 	c.HL = signedOffset(c.SP, l)
 
-	c.FlagZero = false
-	c.FlagSubstract = false
-	c.FlagCarry = (c.HL&0x00FF)+uint16(l) > 0x00FF
-	c.FlagHalfCarry = (c.HL&0x000F)+uint16(l&0x0F) > 0x000F
+	c.ClearFlags()
+	c.FlagCarry = int16(old&0xFF)+int16(l) > 0xFF
+	c.FlagHalfCarry = int16(old&0xF)+int16(l&0xF) > 0xF
 }
 
 // Decimal adjust register A
@@ -992,11 +993,10 @@ func i_ld_d8_sp(c *CPU, l, h byte) {
 
 // Adds signed l to SP
 func i_add_sp_r8(c *CPU, l, _ byte) {
-	c.SP = signedOffset(c.PC, l)
+	old := c.SP
+	c.SP = signedOffset(c.SP, l)
 
-	c.FlagCarry = false     // TODO
-	c.FlagHalfCarry = false // TODO
-
-	c.FlagZero = false
-	c.FlagSubstract = false
+	c.ClearFlags()
+	c.FlagCarry = int16(old&0xFF)+int16(l) > 0xFF
+	c.FlagHalfCarry = int16(old&0xF)+int16(l&0xF) > 0xF
 }
