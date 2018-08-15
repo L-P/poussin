@@ -18,7 +18,10 @@ func (d *Debugger) initKeybinds() error {
 		{d.cbStepOut, 'h'},
 		{d.cbStepOver, 'j'},
 		{d.cbStepIn, 'l'},
-		{d.cbStepToPC, 'i'},
+		{d.cbStepToPC, 'u'},
+		{d.cbStepToInstruction, 'i'},
+		{d.cbStopWhenSB, 'o'},
+		{d.cbStopWhenInterrupt, 'y'},
 	}
 
 	for _, v := range binds {
@@ -96,6 +99,52 @@ func (d *Debugger) cbStepToPC(g *gocui.Gui, v *gocui.View) error {
 
 	atomic.StoreInt32(&d.flowState, FlowPause)
 	if err := d.inputUInt16Modal(g, "Jump to PC", cb); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Debugger) cbStopWhenSB(g *gocui.Gui, v *gocui.View) error {
+	if d.hasModal.IsSet() {
+		return nil
+	}
+
+	cb := func(v byte) {
+		d.stopWhenSB = v
+		atomic.StoreInt32(&d.flowState, FlowStopWhenSB)
+	}
+
+	atomic.StoreInt32(&d.flowState, FlowPause)
+	if err := d.inputUInt8Modal(g, "Stop when SB=", cb); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Debugger) cbStopWhenInterrupt(g *gocui.Gui, v *gocui.View) error {
+	if d.hasModal.IsSet() {
+		return nil
+	}
+
+	atomic.StoreInt32(&d.flowState, FlowStopWhenInterrupt)
+
+	return nil
+}
+
+func (d *Debugger) cbStepToInstruction(g *gocui.Gui, v *gocui.View) error {
+	if d.hasModal.IsSet() {
+		return nil
+	}
+
+	cb := func(v byte) {
+		d.stepToOpcode = v
+		atomic.StoreInt32(&d.flowState, FlowStepToOpcode)
+	}
+
+	atomic.StoreInt32(&d.flowState, FlowPause)
+	if err := d.inputUInt8Modal(g, "Step to opcode", cb); err != nil {
 		return err
 	}
 

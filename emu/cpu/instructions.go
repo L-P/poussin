@@ -5,6 +5,7 @@ import "fmt"
 var instructionsMap = map[byte]Instruction{
 	0x00: {1, 4, "NOP", i_nop},
 	0x10: {2, 4, "STOP %02X", i_stop},
+	0x76: {1, 4, "HALT", i_halt},
 	0x08: {3, 20, "LD (%02X%02X),SP", i_ld_d8_sp},
 
 	0xF3: {1, 4, "DI", i_set_interrupt(false)},
@@ -250,10 +251,10 @@ var instructionsMap = map[byte]Instruction{
 
 	0xC9: {1, 8, "RET", i_ret},
 	0xD9: {1, 8, "RETI", i_reti},
-	0xC0: {1, 8, "RET Z", i_ret_z},
-	0xC8: {1, 8, "RET NZ", i_ret_nz},
-	0xD0: {1, 8, "RET C", i_ret_c},
-	0xD8: {1, 8, "RET NC", i_ret_nc},
+	0xC0: {1, 8, "RET NZ", i_ret_nz},
+	0xC8: {1, 8, "RET Z", i_ret_z},
+	0xD0: {1, 8, "RET NC", i_ret_nc},
+	0xD8: {1, 8, "RET C", i_ret_c},
 
 	0xC5: {1, 16, "PUSH BC", i_push_nn("BC")},
 	0xD5: {1, 16, "PUSH DE", i_push_nn("DE")},
@@ -265,7 +266,7 @@ var instructionsMap = map[byte]Instruction{
 	0xE1: {1, 12, "POP HL", i_pop_nn("HL")},
 	0xF1: {1, 12, "POP AF", i_pop_af},
 
-	0xCB: {1, 4, "PREFIX CB", i_prefix_cb},
+	0xCB: {1, 0, "PREFIX CB", i_nop},
 	0xCD: {3, 24, "CALL $%02X%02X", i_call},
 	0xC4: {3, 24, "CALL NZ,$%02X%02X", i_call_nz},
 	0xCC: {3, 24, "CALL Z,$%02X%02X", i_call_z},
@@ -300,6 +301,10 @@ func i_stop(c *CPU, l, _ byte) {
 	}
 
 	// c.Stopped = true
+}
+
+func i_halt(c *CPU, _, _ byte) {
+	c.Halted = true
 }
 
 // Substracts value of n from A
@@ -574,11 +579,6 @@ func i_or_n(name byte) InstructionImplementation {
 	}
 }
 
-// Tells our virtual CPU the next instruction is from the CB block
-func i_prefix_cb(c *CPU, _, _ byte) {
-	c.NextOpcodeIsCB = true
-}
-
 // Pushes the address of the next instruction onto the stack and jump
 func i_call(c *CPU, l, h byte) {
 	c.StackPush16b(c.PC)
@@ -826,31 +826,31 @@ func i_sbc_a_n(name byte) InstructionImplementation {
 // Substracts the value l from A (- 1 if the carry flag is set)
 func i_sbc_a_d8(c *CPU, l, _ byte) {
 	old := c.A
-	sub := l
+	var carry uint8
 	if c.FlagCarry {
-		sub -= 1
+		carry = 1
 	}
 
-	c.A -= sub
+	c.A = c.A - l - carry
 	c.FlagZero = c.A == 0
 	c.FlagSubstract = true
-	c.FlagCarry = old > c.A
-	c.FlagHalfCarry = (c.A & 0xF) < (sub & 0xF)
+	c.FlagCarry = uint16(old)-uint16(l)-uint16(carry) > 0xFF
+	c.FlagHalfCarry = (old&0xF)-(l&0xF)-carry > 0xF
 }
 
 // Adds the value l to A + 1 if the carry flag is set
 func i_adc_a_d8(c *CPU, l, _ byte) {
 	old := c.A
-	add := l
+	var carry uint8
 	if c.FlagCarry {
-		add += 1
+		carry = 1
 	}
 
-	c.A += add
+	c.A += l + carry
 	c.FlagZero = c.A == 0
 	c.FlagSubstract = false
-	c.FlagHalfCarry = (((old & 0xF) + (add & 0xF)) & 0x10) > 0
-	c.FlagCarry = c.A < old
+	c.FlagCarry = uint16(old)+uint16(l)+uint16(carry) > 0xFF
+	c.FlagHalfCarry = (old&0xF)+(l&0xF)+carry > 0xF
 }
 
 // Adds the value at *HL to A
@@ -932,13 +932,19 @@ func i_add_hl_nn(name string) InstructionImplementation {
 
 		c.FlagSubstract = false
 		c.FlagCarry = c.HL < old
-		// TODO c.HalfCarry
+		// Half carry from bit 11, so a third carry?
+		c.FlagHalfCarry = ((old & 0x0FFF) + (*r & 0x0FFF)) > 0x0FFF
 	}
 }
 
 // Loads SP + l into HL
 func i_ldhl_sp_r8(c *CPU, l, _ byte) {
+	old := c.SP
 	c.HL = signedOffset(c.SP, l)
+
+	c.ClearFlags()
+	c.FlagCarry = int16(old&0xFF)+int16(l) > 0xFF
+	c.FlagHalfCarry = int16(old&0xF)+int16(l&0xF) > 0xF
 }
 
 // Decimal adjust register A
@@ -987,11 +993,10 @@ func i_ld_d8_sp(c *CPU, l, h byte) {
 
 // Adds signed l to SP
 func i_add_sp_r8(c *CPU, l, _ byte) {
-	c.SP = signedOffset(c.PC, l)
+	old := c.SP
+	c.SP = signedOffset(c.SP, l)
 
-	c.FlagCarry = false     // TODO
-	c.FlagHalfCarry = false // TODO
-
-	c.FlagZero = false
-	c.FlagSubstract = false
+	c.ClearFlags()
+	c.FlagCarry = int16(old&0xFF)+int16(l) > 0xFF
+	c.FlagHalfCarry = int16(old&0xF)+int16(l&0xF) > 0xF
 }
