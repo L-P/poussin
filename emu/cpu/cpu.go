@@ -131,6 +131,7 @@ func (c *CPU) Step() (int, error) {
 	c.LastOpcodeWasCB = cb
 
 	ins, err := c.Decode(opcode, cb)
+	c.Cycle += 4
 	if err != nil {
 		return 0, err
 	}
