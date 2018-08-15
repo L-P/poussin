@@ -107,7 +107,9 @@ func (p *PPU) SendFrame() {
 	// crazy fast, this only works if the receiver runs at 60hz of course
 	// ie. my monitor and graphics card run at 60hz with vsync enabled so
 	// this line is the actual simulation speed regulator
-	p.NextFrame <- p.Buffers[p.BackBufferIndex]
+	if p.NextFrame != nil { // nil in tests because we don't care about pictures
+		p.NextFrame <- p.Buffers[p.BackBufferIndex]
+	}
 
 	p.PushedFrames++
 	p.BackBufferIndex = (p.BackBufferIndex + 1) % 2

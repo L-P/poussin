@@ -20,7 +20,7 @@ func NewGameboy(nextFrame chan<- *image.RGBA) (*Gameboy, error) {
 		ppu: ppu.New(nextFrame),
 	}
 
-	gb.cpu = cpu.New(gb.ppu)
+	gb.cpu = cpu.New(gb.ppu, true)
 
 	var err error
 	gb.debugger, err = debugger.New(&gb.cpu, gb.ppu)
@@ -65,4 +65,8 @@ func (g *Gameboy) Run(shouldClose <-chan bool, closed chan<- bool) {
 
 func (g *Gameboy) Close() {
 	g.debugger.Close()
+}
+
+func (g *Gameboy) SimulateBoot() {
+	g.cpu.SimulateBoot()
 }

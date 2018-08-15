@@ -88,10 +88,10 @@ type CPU struct {
 	InternalDIV uint16
 }
 
-func New(ppu *ppu.PPU) CPU {
+func New(ppu *ppu.PPU, debug bool) CPU {
 	c := CPU{
 		PPU:         ppu,
-		EnableDebug: true,
+		EnableDebug: debug,
 	}
 
 	c.Reset()
@@ -102,7 +102,24 @@ func New(ppu *ppu.PPU) CPU {
 func (c *CPU) Reset() {
 	c.InternalDIV = 0
 	c.WriteIF(0)
+	c.WriteIE(0)
 	c.WriteTAC(0)
+}
+
+func (c *CPU) SimulateBoot() {
+	c.A = 0x01
+	c.SetF(0xB0)
+	c.BC = 0x0013
+	c.DE = 0x00D8
+	c.HL = 0x014D
+	c.PC = 0x0100
+	c.SP = 0xFFFE
+
+	c.WriteIF(0)
+	c.WriteIE(0)
+	c.WriteTAC(0)
+	c.InterruptMaster = false
+	c.WriteIO(IODisableBootROM, 0x01)
 }
 
 func (c *CPU) Step() (int, error) {

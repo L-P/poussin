@@ -50,8 +50,8 @@ func main() {
 }
 
 func run() error {
-	if len(flag.Args()) != 2 {
-		fmt.Println("Usage: poussin [-cpuprofile FILE] [-memprofile FILE] BOOTROM ROM")
+	if len(flag.Args()) < 1 {
+		fmt.Println("Usage: poussin [-cpuprofile FILE] [-memprofile FILE] [BOOTROM] ROM")
 		os.Exit(1)
 	}
 
@@ -62,15 +62,28 @@ func run() error {
 	}
 	defer gb.Close()
 
-	bootRom, err := ioutil.ReadFile(flag.Args()[0])
-	if err != nil {
-		return err
-	}
-	if err := gb.LoadBootROM(bootRom); err != nil {
-		return err
+	var bootRomPath string
+	var romPath string
+	if len(flag.Args()) == 2 {
+		bootRomPath = flag.Args()[0]
+		romPath = flag.Args()[1]
+	} else {
+		romPath = flag.Args()[0]
 	}
 
-	rom, err := ioutil.ReadFile(flag.Args()[1])
+	if bootRomPath != "" {
+		bootRom, err := ioutil.ReadFile(bootRomPath)
+		if err != nil {
+			return err
+		}
+		if err := gb.LoadBootROM(bootRom); err != nil {
+			return err
+		}
+	} else {
+		gb.SimulateBoot()
+	}
+
+	rom, err := ioutil.ReadFile(romPath)
 	if err != nil {
 		return err
 	}
