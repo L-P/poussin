@@ -5,6 +5,7 @@ import "fmt"
 var instructionsMap = map[byte]Instruction{
 	0x00: {1, 4, "NOP", i_nop},
 	0x10: {2, 4, "STOP %02X", i_stop},
+	0x76: {1, 4, "HALT", i_halt},
 	0x08: {3, 20, "LD (%02X%02X),SP", i_ld_d8_sp},
 
 	0xF3: {1, 4, "DI", i_set_interrupt(false)},
@@ -300,6 +301,10 @@ func i_stop(c *CPU, l, _ byte) {
 	}
 
 	// c.Stopped = true
+}
+
+func i_halt(c *CPU, _, _ byte) {
+	c.Halted = true
 }
 
 // Substracts value of n from A

@@ -20,7 +20,8 @@ func (d *Debugger) initKeybinds() error {
 		{d.cbStepIn, 'l'},
 		{d.cbStepToPC, 'u'},
 		{d.cbStepToInstruction, 'i'},
-		{d.cbStepWhenSB, 'o'},
+		{d.cbStopWhenSB, 'o'},
+		{d.cbStopWhenInterrupt, 'y'},
 	}
 
 	for _, v := range binds {
@@ -104,7 +105,7 @@ func (d *Debugger) cbStepToPC(g *gocui.Gui, v *gocui.View) error {
 	return nil
 }
 
-func (d *Debugger) cbStepWhenSB(g *gocui.Gui, v *gocui.View) error {
+func (d *Debugger) cbStopWhenSB(g *gocui.Gui, v *gocui.View) error {
 	if d.hasModal.IsSet() {
 		return nil
 	}
@@ -118,6 +119,16 @@ func (d *Debugger) cbStepWhenSB(g *gocui.Gui, v *gocui.View) error {
 	if err := d.inputUInt8Modal(g, "Stop when SB=", cb); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (d *Debugger) cbStopWhenInterrupt(g *gocui.Gui, v *gocui.View) error {
+	if d.hasModal.IsSet() {
+		return nil
+	}
+
+	atomic.StoreInt32(&d.flowState, FlowStopWhenInterrupt)
 
 	return nil
 }

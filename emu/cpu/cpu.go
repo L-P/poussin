@@ -26,8 +26,8 @@ type CPU struct {
 	// ROM holds the ROM mapped to ROM0/ROMX
 	ROM [1024 * 1024 * 8]byte // Per Wikipedia, a GB ROM is 8 MiB max
 
-	// Stopped is set by the STOP instruction, it can only be reset by interrupts.
-	Stopped bool
+	// Halted is set by the HALT instruction, it can only be reset by interrupts.
+	Halted bool
 
 	// {{{ Debug
 	// EnableDebug is the master flag for enabling debug values.
@@ -46,6 +46,9 @@ type CPU struct {
 
 	// LastOpcode is the last opcode executed by the CPU
 	LastOpcode byte
+
+	// LastCycleWasInterrupt is set to true right after an interrupt was triggered
+	LastCycleWasInterrupt bool
 
 	// LastOpcodeWasCB indicates if LastOpcode was from the CB opcode table
 	LastOpcodeWasCB bool
@@ -105,14 +108,16 @@ func (c *CPU) Reset() {
 func (c *CPU) Step() (int, error) {
 	defer c.UpdateTimers()
 
+	c.LastCycleWasInterrupt = false
 	if cycles := c.CheckInterrupts(); cycles > 0 {
+		c.LastCycleWasInterrupt = true
 		c.InterruptMaster = false
 		c.Cycle += cycles
-		c.Stopped = false
+		c.Halted = false
 		return cycles, nil
 	}
 
-	if c.Stopped {
+	if c.Halted {
 		c.Cycle += 4
 		return 4, nil
 	}
@@ -200,18 +205,32 @@ func (c *CPU) DoInterrupt(addr uint16) int {
 }
 
 func (c *CPU) CheckInterrupts() int {
-	if !c.InterruptMaster {
+	// When HALTed, interrupts are active even when IME is off.
+	// IF seems to be reset only if IME is on though.
+	if !c.InterruptMaster && !c.Halted {
 		return 0
 	}
 
+	if c.PPU.InterruptVBlank {
+		c.SetIF(IEVBlank)
+		c.PPU.InterruptVBlank = false
+	}
+
 	if c.IFIsSet(IETimer) && c.IEEnabled(IETimer) {
-		c.UnSetIF(IETimer)
 		c.Mem[IOTIMA] = c.Mem[IOTMA]
+		if c.InterruptMaster {
+			c.UnSetIF(IETimer)
+		}
+
 		return c.DoInterrupt(0x0050)
 	}
 
-	if c.PPU.InterruptVBlank && c.IEEnabled(IEVBlank) {
-		c.PPU.InterruptVBlank = false
+	if c.IFIsSet(IEVBlank) && c.IEEnabled(IEVBlank) {
+		if c.InterruptMaster {
+			c.UnSetIF(IEVBlank)
+		}
+
+		c.UnSetIF(IEVBlank)
 		return c.DoInterrupt(0x0040)
 	}
 

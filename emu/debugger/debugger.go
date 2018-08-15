@@ -74,14 +74,15 @@ type Debugger struct {
 
 const (
 	FlowRun = int32(iota)
-	FlowQuit
 	FlowPause
+	FlowQuit
 	FlowStepIn
 	FlowStepOut
-	FlowStepToPC
 	FlowStepOver
-	FlowStopWhenSB
 	FlowStepToOpcode
+	FlowStepToPC
+	FlowStopWhenInterrupt
+	FlowStopWhenSB
 )
 
 // New creates a new debugger instance.
@@ -155,6 +156,7 @@ func (d *Debugger) Closed() bool {
 }
 
 func (d *Debugger) Panic(err error) {
+	atomic.StoreInt32(&d.flowState, FlowPause)
 	d.lastCPUError = err
 	d.updateMessages()
 }
@@ -195,6 +197,10 @@ func (d *Debugger) flowControl() {
 		}
 	case FlowStepToOpcode:
 		if d.cpu.LastOpcode == d.stepToOpcode && !d.cpu.LastOpcodeWasCB {
+			atomic.StoreInt32(&d.flowState, FlowPause)
+		}
+	case FlowStopWhenInterrupt:
+		if d.cpu.LastCycleWasInterrupt {
 			atomic.StoreInt32(&d.flowState, FlowPause)
 		}
 	}
