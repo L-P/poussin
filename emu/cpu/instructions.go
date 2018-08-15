@@ -826,31 +826,31 @@ func i_sbc_a_n(name byte) InstructionImplementation {
 // Substracts the value l from A (- 1 if the carry flag is set)
 func i_sbc_a_d8(c *CPU, l, _ byte) {
 	old := c.A
-	sub := l
+	var carry uint8
 	if c.FlagCarry {
-		sub -= 1
+		carry = 1
 	}
 
-	c.A -= sub
+	c.A = c.A - l - carry
 	c.FlagZero = c.A == 0
 	c.FlagSubstract = true
-	c.FlagCarry = old > c.A
-	c.FlagHalfCarry = (c.A & 0xF) < (sub & 0xF)
+	c.FlagCarry = uint16(old)-uint16(l)-uint16(carry) > 0xFF
+	c.FlagHalfCarry = (old&0xF)-(l&0xF)-carry > 0xF
 }
 
 // Adds the value l to A + 1 if the carry flag is set
 func i_adc_a_d8(c *CPU, l, _ byte) {
 	old := c.A
-	add := l
+	var carry uint8
 	if c.FlagCarry {
-		add += 1
+		carry = 1
 	}
 
-	c.A += add
+	c.A += l + carry
 	c.FlagZero = c.A == 0
 	c.FlagSubstract = false
-	c.FlagHalfCarry = (((old & 0xF) + (add & 0xF)) & 0x10) > 0
-	c.FlagCarry = c.A < old
+	c.FlagCarry = uint16(old)+uint16(l)+uint16(carry) > 0xFF
+	c.FlagHalfCarry = (old&0xF)+(l&0xF)+carry > 0xF
 }
 
 // Adds the value at *HL to A
