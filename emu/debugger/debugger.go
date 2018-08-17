@@ -61,6 +61,8 @@ type Debugger struct {
 	ioTMA         byte
 	ioTAC         byte
 	ioTIMA        byte
+	ioLCDC        byte
+	ioSTAT        byte
 	ioInternalDIV uint16
 
 	// Performance counters
@@ -83,6 +85,7 @@ const (
 	FlowStepToPC
 	FlowStopWhenInterrupt
 	FlowStopWhenSB
+	FlowStopWhenVSync
 )
 
 // New creates a new debugger instance.
@@ -185,6 +188,10 @@ func (d *Debugger) flowControl() {
 		if d.callDepth == d.requestedDepth {
 			atomic.StoreInt32(&d.flowState, FlowPause)
 		}
+	case FlowStopWhenVSync:
+		if d.ppu.InterruptVBlank {
+			atomic.StoreInt32(&d.flowState, FlowPause)
+		}
 	case FlowStepOver:
 		atomic.StoreInt32(&d.flowState, FlowPause)
 	case FlowStopWhenSB:
@@ -219,6 +226,8 @@ func (d *Debugger) updateIORegisters() {
 	d.ioTMA = d.cpu.FetchIO(cpu.IOTMA)
 	d.ioTAC = d.cpu.FetchIO(cpu.IOTAC)
 	d.ioTIMA = d.cpu.FetchIO(cpu.IOTIMA)
+	d.ioLCDC = d.ppu.LCDC
+	d.ioSTAT = d.ppu.STAT
 }
 
 func (d *Debugger) updateInstructions() {

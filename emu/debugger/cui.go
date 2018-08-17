@@ -172,10 +172,12 @@ func (d *Debugger) updateMiscWindow(g *gocui.Gui) error {
 	v.Clear()
 	fmt.Fprintf(
 		v,
-		"OPS: %d\nFPS: %d\nDepth: %d\n",
+		"OPS: %d\nFPS: %d\nDepth: %d\nLCDC: %02X\nSTAT: %02X\n",
 		d.opPerSecond,
 		d.framePerSecond,
 		d.callDepth,
+		d.ioLCDC,
+		d.ioSTAT,
 	)
 
 	return nil
