@@ -13,4 +13,4 @@ pprof: poussin
 
 test:
 	go vet ./...
-	go test .
+	go test . -timeout 15s
