@@ -1,19 +1,29 @@
 package cpu
 
-import "fmt"
+import (
+	"fmt"
+	"math/bits"
+)
 
 var instructionsMap = map[byte]Instruction{
 	0x00: {1, 4, "NOP", i_nop},
 	0x10: {2, 4, "STOP %02X", i_stop},
 	0x76: {1, 4, "HALT", i_halt},
 	0x08: {3, 20, "LD (%02X%02X),SP", i_ld_d8_sp},
+	0x3F: {1, 4, "CCF", i_ccf},
+	0x37: {1, 4, "SCF", i_scf},
 
 	0xF3: {1, 4, "DI", i_set_interrupt(false)},
 	0xFB: {1, 4, "EI", i_set_interrupt(true)},
 
 	0x2F: {1, 4, "CPL", i_cpl},
-	0x07: {1, 4, "RLCA", i_cb_rlc_n('A')},
-	0x1F: {1, 4, "RRA", i_cb_rr_n('A')},
+
+	// Those reset Z flag, not the same as CB instructions
+	// GBCPUMAN is wrong
+	0x07: {1, 4, "RLCA", i_rlca},
+	0x0F: {1, 4, "RRCA", i_rrca},
+	0x1F: {1, 4, "RRA", i_rra},
+
 	0x27: {1, 4, "DAA", i_daa},
 
 	0x3C: {1, 4, "INC A", i_inc_a},
@@ -62,6 +72,9 @@ var instructionsMap = map[byte]Instruction{
 	0x8F: {1, 4, "ADC A,A", i_adc_a_n('A')},
 
 	0x86: {1, 8, "ADD A,(HL)", i_add_a_phl},
+	0x8E: {1, 8, "ADC A,(HL)", i_adc_a_phl},
+	0x9E: {1, 8, "SBC A,(HL)", i_sbc_a_phl},
+	0xA6: {1, 8, "AND A", i_and_phl},
 	0xC6: {2, 8, "ADD A,(%02X)", i_add_a_d8},
 	0xCE: {2, 8, "ADC A,(%02X)", i_adc_a_d8},
 
@@ -71,6 +84,7 @@ var instructionsMap = map[byte]Instruction{
 	0x39: {1, 8, "ADD HL,SP", i_add_hl_nn("SP")},
 	0xE8: {2, 16, "ADD SP,%02X", i_add_sp_r8},
 
+	0x96: {2, 8, "SUB %02X", i_sub_phl},
 	0xD6: {2, 8, "SUB %02X", i_sub_d8},
 	0x97: {1, 4, "SUB A", i_sub_n('A')},
 	0x90: {1, 4, "SUB B", i_sub_n('B')},
@@ -207,6 +221,7 @@ var instructionsMap = map[byte]Instruction{
 	0xF9: {1, 8, "LD SP,HL", i_ld_sp_hl},
 
 	0xE2: {1, 8, "LD (C),A", i_ld_pc_a},
+	0xF2: {1, 8, "LD A,(C)", i_ld_a_pc},
 	0xEA: {3, 16, "LD ($%02X%02X),A", i_ld_pn_a},
 
 	0x02: {1, 8, "LD (BC),A", i_ld_pnn_n("BC", 'A')},
@@ -247,6 +262,8 @@ var instructionsMap = map[byte]Instruction{
 	0xC3: {3, 12, "JP $%02X%02X", i_jp_nn},
 	0xCA: {3, 12, "JP Z,$%02X%02X", i_jp_z},
 	0xC2: {3, 12, "JP NZ,$%02X%02X", i_jp_nz},
+	0xDA: {3, 12, "JP NC,$%02X%02X", i_jp_c},
+	0xD2: {3, 12, "JP NC,$%02X%02X", i_jp_nc},
 	0xE9: {1, 4, "JP (HL)", i_jp_hl}, // weird mnemonic, we go to HL, not (HL)
 
 	0xC9: {1, 8, "RET", i_ret},
@@ -270,6 +287,8 @@ var instructionsMap = map[byte]Instruction{
 	0xCD: {3, 24, "CALL $%02X%02X", i_call},
 	0xC4: {3, 24, "CALL NZ,$%02X%02X", i_call_nz},
 	0xCC: {3, 24, "CALL Z,$%02X%02X", i_call_z},
+	0xD4: {3, 24, "CALL NC,$%02X%02X", i_call_nc},
+	0xDC: {3, 24, "CALL C,$%02X%02X", i_call_c},
 
 	0xC7: {1, 16, "RST,$00", i_rst(0x00)},
 	0xCF: {1, 16, "RST,$08", i_rst(0x08)},
@@ -321,6 +340,19 @@ func i_sub_n(name byte) InstructionImplementation {
 		c.FlagZero = b == 0
 		c.FlagSubstract = true
 	}
+}
+
+// Substracts value of (HL) from A
+func i_sub_phl(c *CPU, _, _ byte) {
+	sub := c.Fetch(c.HL)
+	b := c.A - sub
+
+	c.FlagHalfCarry = (c.A & 0xF) < (sub & 0xF)
+	c.FlagCarry = b > c.A
+
+	c.A = b
+	c.FlagZero = b == 0
+	c.FlagSubstract = true
 }
 
 // Substracts l from A
@@ -442,6 +474,11 @@ func i_ld_pc_a(c *CPU, _, _ byte) {
 	c.Write(0xFF00|uint16(c.GetC()), c.A)
 }
 
+// Loads (0xFF00 + C) into A
+func i_ld_a_pc(c *CPU, _, _ byte) {
+	c.A = c.Fetch(0xFF00 | uint16(c.GetC()))
+}
+
 // Loads 8b value into n
 func i_ld_n(name byte) InstructionImplementation {
 	return func(c *CPU, l, _ byte) {
@@ -557,6 +594,14 @@ func i_and_n(name byte) InstructionImplementation {
 	}
 }
 
+// Performs a logical AND against A and (HL)
+func i_and_phl(c *CPU, _, _ byte) {
+	c.A &= c.Fetch(c.HL)
+	c.ClearFlags()
+	c.FlagZero = c.A == 0
+	c.FlagHalfCarry = true
+}
+
 // Performs a logical XOR against A and n
 func i_xor_n(name byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
@@ -588,6 +633,26 @@ func i_call(c *CPU, l, h byte) {
 // If Z is not set, pushes the address of the next instruction onto the stack and jump
 func i_call_nz(c *CPU, l, h byte) {
 	if c.FlagZero {
+		return
+	}
+
+	c.StackPush16b(c.PC)
+	c.PC = (uint16(h) << 8) | uint16(l)
+}
+
+// If C is not set, pushes the address of the next instruction onto the stack and jump
+func i_call_nc(c *CPU, l, h byte) {
+	if c.FlagCarry {
+		return
+	}
+
+	c.StackPush16b(c.PC)
+	c.PC = (uint16(h) << 8) | uint16(l)
+}
+
+// If C is set, pushes the address of the next instruction onto the stack and jump
+func i_call_c(c *CPU, l, h byte) {
+	if !c.FlagCarry {
 		return
 	}
 
@@ -739,6 +804,20 @@ func i_jp_nn(c *CPU, l, h byte) {
 	c.PC = uint16(l) | (uint16(h) << 8)
 }
 
+// Jumps to addr if C flag is not set
+func i_jp_nc(c *CPU, l, h byte) {
+	if !c.FlagCarry {
+		c.PC = uint16(l) | (uint16(h) << 8)
+	}
+}
+
+// Jumps to addr if C flag is set
+func i_jp_c(c *CPU, l, h byte) {
+	if c.FlagCarry {
+		c.PC = uint16(l) | (uint16(h) << 8)
+	}
+}
+
 // Jumps to addr if Z flag is not set
 func i_jp_nz(c *CPU, l, h byte) {
 	if !c.FlagZero {
@@ -780,8 +859,8 @@ func i_add_a_n(name byte) InstructionImplementation {
 		c.A += add
 		c.FlagZero = c.A == 0
 		c.FlagSubstract = false
-		c.FlagHalfCarry = (((old & 0xF) + (add & 0xF)) & 0x10) > 0
-		c.FlagCarry = c.A < old
+		c.FlagCarry = uint16(old)+uint16(add) > 0xFF
+		c.FlagHalfCarry = (old&0xF)+(add&0xF) > 0xF
 	}
 }
 
@@ -792,15 +871,16 @@ func i_adc_a_n(name byte) InstructionImplementation {
 
 		old := c.A
 		add := get()
+		var carry byte
 		if c.FlagCarry {
-			add += 1
+			carry = 1
 		}
 
-		c.A += add
+		c.A += add + carry
 		c.FlagZero = c.A == 0
 		c.FlagSubstract = false
-		c.FlagHalfCarry = (((old & 0xF) + (add & 0xF)) & 0x10) > 0
-		c.FlagCarry = c.A < old
+		c.FlagCarry = uint16(old)+uint16(add)+uint16(carry) > 0xFF
+		c.FlagHalfCarry = (old&0xF)+(add&0xF)+carry > 0xF
 	}
 }
 
@@ -811,16 +891,33 @@ func i_sbc_a_n(name byte) InstructionImplementation {
 
 		old := c.A
 		sub := get()
+		var carry byte
 		if c.FlagCarry {
-			sub -= 1
+			carry = 1
 		}
 
-		c.A -= sub
+		c.A = c.A - sub - carry
 		c.FlagZero = c.A == 0
 		c.FlagSubstract = true
-		c.FlagCarry = old > c.A
-		c.FlagHalfCarry = (c.A & 0xF) < (sub & 0xF)
+		c.FlagCarry = uint16(old)-uint16(sub)-uint16(carry) > 0xFF
+		c.FlagHalfCarry = (old&0xF)-(sub&0xF)-carry > 0xF
 	}
+}
+
+// Substracts the value at (HL) from A (- 1 if the carry flag is set)
+func i_sbc_a_phl(c *CPU, _, _ byte) {
+	old := c.A
+	sub := c.Fetch(c.HL)
+	var carry byte
+	if c.FlagCarry {
+		carry = 1
+	}
+
+	c.A = c.A - sub - carry
+	c.FlagZero = c.A == 0
+	c.FlagSubstract = true
+	c.FlagCarry = uint16(old)-uint16(sub)-uint16(carry) > 0xFF
+	c.FlagHalfCarry = (old&0xF)-(sub&0xF)-carry > 0xF
 }
 
 // Substracts the value l from A (- 1 if the carry flag is set)
@@ -851,6 +948,22 @@ func i_adc_a_d8(c *CPU, l, _ byte) {
 	c.FlagSubstract = false
 	c.FlagCarry = uint16(old)+uint16(l)+uint16(carry) > 0xFF
 	c.FlagHalfCarry = (old&0xF)+(l&0xF)+carry > 0xF
+}
+
+// Adds the value at (HL) to A + 1 if the carry flag is set
+func i_adc_a_phl(c *CPU, _, _ byte) {
+	old := c.A
+	add := c.Fetch(c.HL)
+	var carry uint8
+	if c.FlagCarry {
+		carry = 1
+	}
+
+	c.A += add + carry
+	c.FlagZero = c.A == 0
+	c.FlagSubstract = false
+	c.FlagCarry = uint16(old)+uint16(add)+uint16(carry) > 0xFF
+	c.FlagHalfCarry = (old&0xF)+(add&0xF)+carry > 0xF
 }
 
 // Adds the value at *HL to A
@@ -999,4 +1112,41 @@ func i_add_sp_r8(c *CPU, l, _ byte) {
 	c.ClearFlags()
 	c.FlagCarry = int16(old&0xFF)+int16(l) > 0xFF
 	c.FlagHalfCarry = int16(old&0xF)+int16(l&0xF) > 0xF
+}
+
+// Inverts carry flag
+func i_ccf(c *CPU, _, _ byte) {
+	c.FlagSubstract = false
+	c.FlagHalfCarry = false
+	c.FlagCarry = !c.FlagCarry
+}
+
+// Sets carry flag
+func i_scf(c *CPU, _, _ byte) {
+	c.FlagSubstract = false
+	c.FlagHalfCarry = false
+	c.FlagCarry = true
+}
+
+// Rotates A left, old 7 bit to carry
+func i_rlca(c *CPU, _, _ byte) {
+	c.ClearFlags()
+	c.FlagCarry = c.A&0x80 == 0x80
+	c.A = bits.RotateLeft8(c.A, 1)
+}
+
+// Rotates A right, old 0 bit to carry
+func i_rrca(c *CPU, _, _ byte) {
+	c.ClearFlags()
+	c.FlagCarry = c.A&0x01 == 0x01
+	c.A = bits.RotateLeft8(c.A, -1)
+}
+
+// Rotates A right through carry
+func i_rra(c *CPU, _, _ byte) {
+	var carry bool
+	c.A, carry = rotateRightWithCarry(c.A, c.FlagCarry)
+
+	c.ClearFlags()
+	c.FlagCarry = carry
 }

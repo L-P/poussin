@@ -10,14 +10,16 @@ var cbInstructionsMap = map[byte]Instruction{
 	0x04: {1, 4, "RLC H", i_cb_rlc_n('H')},
 	0x05: {1, 4, "RLC L", i_cb_rlc_n('L')},
 	0x07: {1, 4, "RLC A", i_cb_rlc_n('A')},
+	0x06: {1, 12, "RLC (HL)", i_cb_rlc_phl},
 
-	0x3F: {1, 4, "SRL A", i_cb_srl_n('A')},
-	0x38: {1, 4, "SRL B", i_cb_srl_n('B')},
-	0x39: {1, 4, "SRL C", i_cb_srl_n('C')},
-	0x3A: {1, 4, "SRL D", i_cb_srl_n('D')},
-	0x3B: {1, 4, "SRL E", i_cb_srl_n('E')},
-	0x3C: {1, 4, "SRL H", i_cb_srl_n('H')},
-	0x3D: {1, 4, "SRL L", i_cb_srl_n('L')},
+	0x08: {1, 4, "RRC B", i_cb_rrc_n('B')},
+	0x09: {1, 4, "RRC C", i_cb_rrc_n('C')},
+	0x0A: {1, 4, "RRC D", i_cb_rrc_n('D')},
+	0x0B: {1, 4, "RRC E", i_cb_rrc_n('E')},
+	0x0C: {1, 4, "RRC H", i_cb_rrc_n('H')},
+	0x0D: {1, 4, "RRC L", i_cb_rrc_n('L')},
+	0x0F: {1, 4, "RRC A", i_cb_rrc_n('A')},
+	0x0E: {1, 12, "RRC (HL)", i_cb_rrc_phl},
 
 	0x10: {1, 4, "RL B", i_cb_rl_n('B')},
 	0x11: {1, 4, "RL C", i_cb_rl_n('C')},
@@ -26,6 +28,7 @@ var cbInstructionsMap = map[byte]Instruction{
 	0x14: {1, 4, "RL H", i_cb_rl_n('H')},
 	0x15: {1, 4, "RL L", i_cb_rl_n('L')},
 	0x17: {1, 4, "RL A", i_cb_rl_n('A')},
+	0x16: {1, 12, "RL (HL)", i_cb_rl_phl},
 
 	0x18: {1, 4, "RR B", i_cb_rr_n('B')},
 	0x19: {1, 4, "RR C", i_cb_rr_n('C')},
@@ -34,14 +37,43 @@ var cbInstructionsMap = map[byte]Instruction{
 	0x1C: {1, 4, "RR H", i_cb_rr_n('H')},
 	0x1D: {1, 4, "RR L", i_cb_rr_n('L')},
 	0x1F: {1, 4, "RR A", i_cb_rr_n('A')},
+	0x1E: {1, 4, "RR (HL)", i_cb_rr_phl},
 
-	0x27: {1, 4, "SLA A", i_cb_sla_n('A')},
 	0x20: {1, 4, "SLA B", i_cb_sla_n('B')},
 	0x21: {1, 4, "SLA C", i_cb_sla_n('C')},
 	0x22: {1, 4, "SLA D", i_cb_sla_n('D')},
 	0x23: {1, 4, "SLA E", i_cb_sla_n('E')},
 	0x24: {1, 4, "SLA H", i_cb_sla_n('H')},
 	0x25: {1, 4, "SLA L", i_cb_sla_n('L')},
+	0x27: {1, 4, "SLA A", i_cb_sla_n('A')},
+	0x26: {1, 12, "SLA (HL)", i_cb_sla_phl},
+
+	0x28: {1, 4, "SRA B", i_cb_sra_n('B')},
+	0x29: {1, 4, "SRA C", i_cb_sra_n('C')},
+	0x2A: {1, 4, "SRA D", i_cb_sra_n('D')},
+	0x2B: {1, 4, "SRA E", i_cb_sra_n('E')},
+	0x2C: {1, 4, "SRA H", i_cb_sra_n('H')},
+	0x2D: {1, 4, "SRA L", i_cb_sra_n('L')},
+	0x2F: {1, 4, "SRA A", i_cb_sra_n('A')},
+	0x2E: {1, 12, "SRA (HL)", i_cb_sra_phl},
+
+	0x30: {1, 4, "SWAP B", i_cb_swap_n('B')},
+	0x31: {1, 4, "SWAP C", i_cb_swap_n('C')},
+	0x32: {1, 4, "SWAP D", i_cb_swap_n('D')},
+	0x33: {1, 4, "SWAP E", i_cb_swap_n('E')},
+	0x34: {1, 4, "SWAP H", i_cb_swap_n('H')},
+	0x35: {1, 4, "SWAP L", i_cb_swap_n('L')},
+	0x37: {1, 4, "SWAP A", i_cb_swap_n('A')},
+	0x36: {1, 12, "SWAP (HL)", i_cb_swap_phl},
+
+	0x38: {1, 4, "SRL B", i_cb_srl_n('B')},
+	0x39: {1, 4, "SRL C", i_cb_srl_n('C')},
+	0x3A: {1, 4, "SRL D", i_cb_srl_n('D')},
+	0x3B: {1, 4, "SRL E", i_cb_srl_n('E')},
+	0x3C: {1, 4, "SRL H", i_cb_srl_n('H')},
+	0x3D: {1, 4, "SRL L", i_cb_srl_n('L')},
+	0x3F: {1, 4, "SRL A", i_cb_srl_n('A')},
+	0x3E: {1, 12, "SRL (HL)", i_cb_srl_phl},
 
 	0x40: {1, 4, "BIT 0,B", i_cb_bit_x_n(0, 'B')},
 	0x41: {1, 4, "BIT 0,C", i_cb_bit_x_n(0, 'C')},
@@ -99,6 +131,15 @@ var cbInstructionsMap = map[byte]Instruction{
 	0x7C: {1, 4, "BIT 7,H", i_cb_bit_x_n(7, 'H')},
 	0x7D: {1, 4, "BIT 7,L", i_cb_bit_x_n(7, 'L')},
 	0x7F: {1, 4, "BIT 7,A", i_cb_bit_x_n(7, 'A')},
+
+	0x46: {1, 12, "BIT 0,(HL)", i_cb_bit_x_phl(0)},
+	0x4E: {1, 12, "BIT 1,(HL)", i_cb_bit_x_phl(1)},
+	0x56: {1, 12, "BIT 2,(HL)", i_cb_bit_x_phl(2)},
+	0x5E: {1, 12, "BIT 3,(HL)", i_cb_bit_x_phl(3)},
+	0x66: {1, 12, "BIT 4,(HL)", i_cb_bit_x_phl(4)},
+	0x6E: {1, 12, "BIT 5,(HL)", i_cb_bit_x_phl(5)},
+	0x76: {1, 12, "BIT 6,(HL)", i_cb_bit_x_phl(6)},
+	0x7E: {1, 12, "BIT 7,(HL)", i_cb_bit_x_phl(7)},
 
 	0x80: {1, 4, "RES 0,B", i_cb_res_x_n(0, 'B')},
 	0x81: {1, 4, "RES 0,C", i_cb_res_x_n(0, 'C')},
@@ -214,14 +255,6 @@ var cbInstructionsMap = map[byte]Instruction{
 	0xFD: {1, 4, "SET 7,L", i_cb_set_x_n(7, 'L')},
 	0xFF: {1, 4, "SET 7,A", i_cb_set_x_n(7, 'A')},
 
-	0x30: {1, 4, "SWAP B", i_cb_swap_n('B')},
-	0x31: {1, 4, "SWAP C", i_cb_swap_n('C')},
-	0x32: {1, 4, "SWAP D", i_cb_swap_n('D')},
-	0x33: {1, 4, "SWAP E", i_cb_swap_n('E')},
-	0x34: {1, 4, "SWAP H", i_cb_swap_n('H')},
-	0x35: {1, 4, "SWAP L", i_cb_swap_n('L')},
-	0x37: {1, 4, "SWAP A", i_cb_swap_n('A')},
-
 	0x86: {1, 16, "RES 0,(HL)", i_cb_res_x_phl(0)},
 	0x8E: {1, 16, "RES 1,(HL)", i_cb_res_x_phl(1)},
 	0x96: {1, 16, "RES 2,(HL)", i_cb_res_x_phl(2)},
@@ -255,6 +288,17 @@ func i_cb_rl_n(name byte) InstructionImplementation {
 	}
 }
 
+// Rotates (HL) left through Carry flag
+func i_cb_rl_phl(c *CPU, _, _ byte) {
+	var b byte
+	b, c.FlagCarry = rotateLeftWithCarry(c.Fetch(c.HL), c.FlagCarry)
+
+	c.Write(c.HL, b)
+	c.FlagZero = b == 0
+	c.FlagSubstract = false
+	c.FlagHalfCarry = false
+}
+
 // Rotates n right through Carry flag
 func i_cb_rr_n(name byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
@@ -267,6 +311,17 @@ func i_cb_rr_n(name byte) InstructionImplementation {
 		c.FlagSubstract = false
 		c.FlagHalfCarry = false
 	}
+}
+
+// Rotates (HL) right through Carry flag
+func i_cb_rr_phl(c *CPU, _, _ byte) {
+	var b byte
+	b, c.FlagCarry = rotateRightWithCarry(c.Fetch(c.HL), c.FlagCarry)
+
+	c.Write(c.HL, b)
+	c.FlagZero = b == 0
+	c.FlagSubstract = false
+	c.FlagHalfCarry = false
 }
 
 // Shifts n right into Carry. MSB set to 0.
@@ -285,11 +340,33 @@ func i_cb_srl_n(name byte) InstructionImplementation {
 	}
 }
 
+// Shifts (HL) right into Carry. MSB set to 0.
+func i_cb_srl_phl(c *CPU, _, _ byte) {
+	b := c.Fetch(c.HL)
+
+	c.FlagCarry = b&0x01 == 0x01
+	b = b >> 1
+
+	c.Write(c.HL, b)
+	c.FlagZero = b == 0
+	c.FlagSubstract = false
+	c.FlagHalfCarry = false
+}
+
 // Sets flag Z if the nth bit of n is not set
 func i_cb_bit_x_n(bit uint, name byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
 		get, _ := c.GetRegisterCallbacks(name)
 		c.FlagZero = (get() & (1 << bit)) == 0
+		c.FlagSubstract = false
+		c.FlagHalfCarry = true
+	}
+}
+
+// Sets flag Z if the nth bit of (HL) is not set
+func i_cb_bit_x_phl(bit uint) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		c.FlagZero = (c.Fetch(c.HL) & (1 << bit)) == 0
 		c.FlagSubstract = false
 		c.FlagHalfCarry = true
 	}
@@ -339,6 +416,16 @@ func i_cb_swap_n(name byte) InstructionImplementation {
 	}
 }
 
+// Swaps high and low nibble of a (HL)
+func i_cb_swap_phl(c *CPU, _, _ byte) {
+	b := c.Fetch(c.HL)
+	b = ((b & 0x0F) << 4) | ((b & 0xF0) >> 4)
+	c.Write(c.HL, b)
+
+	c.ClearFlags()
+	c.FlagZero = b == 0
+}
+
 // Shifts n into carry
 func i_cb_sla_n(name byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
@@ -354,13 +441,24 @@ func i_cb_sla_n(name byte) InstructionImplementation {
 	}
 }
 
+// Shifts (HL) into carry
+func i_cb_sla_phl(c *CPU, _, _ byte) {
+	w := uint16(c.Fetch(c.HL)) << 1
+	b := byte(w)
+	c.Write(c.HL, b)
+
+	c.ClearFlags()
+	c.FlagZero = b == 0
+	c.FlagCarry = (w & (1 << 8)) > 0
+}
+
 // Rotates n left, old 7 bit to carry
 func i_cb_rlc_n(name byte) InstructionImplementation {
 	return func(c *CPU, _, _ byte) {
 		get, set := c.GetRegisterCallbacks(name)
 
 		b := get()
-		c.FlagCarry = (b & (1 << 7)) > 0
+		c.FlagCarry = b&0x80 == 0x80
 
 		b = bits.RotateLeft8(b, 1)
 		set(b)
@@ -369,4 +467,75 @@ func i_cb_rlc_n(name byte) InstructionImplementation {
 		c.FlagHalfCarry = false
 		c.FlagSubstract = false
 	}
+}
+
+// Rotates (HL) left, old 7 bit to carry
+func i_cb_rlc_phl(c *CPU, _, _ byte) {
+	b := c.Fetch(c.HL)
+	c.FlagCarry = b&0x80 == 0x80
+
+	b = bits.RotateLeft8(b, 1)
+	c.Write(c.HL, b)
+
+	c.FlagZero = b == 0
+	c.FlagHalfCarry = false
+	c.FlagSubstract = false
+}
+
+// Rotates n right, old 0 bit to carry
+func i_cb_rrc_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, set := c.GetRegisterCallbacks(name)
+
+		b := get()
+		c.FlagCarry = (b & 0x01) == 0x01
+
+		b = bits.RotateLeft8(b, -1)
+		set(b)
+
+		c.FlagZero = b == 0
+		c.FlagHalfCarry = false
+		c.FlagSubstract = false
+	}
+}
+
+// Rotates (HL) right, old 0 bit to carry
+func i_cb_rrc_phl(c *CPU, _, _ byte) {
+	b := c.Fetch(c.HL)
+	c.FlagCarry = (b & 0x01) == 0x01
+
+	b = bits.RotateLeft8(b, -1)
+	c.Write(c.HL, b)
+
+	c.FlagZero = b == 0
+	c.FlagHalfCarry = false
+	c.FlagSubstract = false
+}
+
+// Shifts n right into Carry. MSB doesn't change
+func i_cb_sra_n(name byte) InstructionImplementation {
+	return func(c *CPU, _, _ byte) {
+		get, set := c.GetRegisterCallbacks(name)
+
+		b := get()
+		c.FlagCarry = b&0x01 == 0x01
+
+		b = b>>1 | (b & (1 << 7))
+		set(b)
+		c.FlagZero = b == 0
+		c.FlagSubstract = false
+		c.FlagHalfCarry = false
+	}
+}
+
+// Shifts (HL) right into Carry. MSB doesn't change
+func i_cb_sra_phl(c *CPU, _, _ byte) {
+	b := c.Fetch(c.HL)
+	c.FlagCarry = b&0x01 == 0x01
+
+	b = b>>1 | (b & (1 << 7))
+	c.Write(c.HL, b)
+	c.FlagZero = b == 0
+	c.FlagSubstract = false
+	c.FlagHalfCarry = false
 }
