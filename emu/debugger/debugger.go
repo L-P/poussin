@@ -211,7 +211,7 @@ func (d *Debugger) flowControl() {
 		}
 	}
 
-	for atomic.LoadInt32(&d.flowState) == FlowPause {
+	for atomic.LoadInt32(&d.flowState) == FlowPause && !d.closed.IsSet() {
 		time.Sleep(50 * time.Millisecond)
 	}
 }
