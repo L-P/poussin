@@ -3,9 +3,9 @@ package emu
 import (
 	"image"
 
-	"home.leo-peltier.fr/poussin/emu/cpu"
-	"home.leo-peltier.fr/poussin/emu/debugger"
-	"home.leo-peltier.fr/poussin/emu/ppu"
+	"github.com/L-P/poussin/emu/cpu"
+	"github.com/L-P/poussin/emu/debugger"
+	"github.com/L-P/poussin/emu/ppu"
 )
 
 type Gameboy struct {

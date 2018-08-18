@@ -5,8 +5,8 @@ import (
 	"sync"
 	"testing"
 
-	"home.leo-peltier.fr/poussin/emu/cpu"
-	"home.leo-peltier.fr/poussin/emu/ppu"
+	"github.com/L-P/poussin/emu/cpu"
+	"github.com/L-P/poussin/emu/ppu"
 )
 
 func TestCPUInstrs(t *testing.T) {

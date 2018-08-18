@@ -1,7 +1,7 @@
 package cpu
 
 import (
-	"home.leo-peltier.fr/poussin/emu/ppu"
+	"github.com/L-P/poussin/emu/ppu"
 )
 
 const (

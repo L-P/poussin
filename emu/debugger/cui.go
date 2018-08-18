@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jroimartin/gocui"
-	"home.leo-peltier.fr/poussin/emu/cpu"
+	"github.com/L-P/poussin/emu/cpu"
 )
 
 func (d *Debugger) layout(g *gocui.Gui) error {

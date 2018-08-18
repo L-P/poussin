@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"home.leo-peltier.fr/poussin/emu/ppu"
-	"home.leo-peltier.fr/poussin/emu/rom"
+	"github.com/L-P/poussin/emu/ppu"
+	"github.com/L-P/poussin/emu/rom"
 )
 
 type CPU struct {

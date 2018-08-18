@@ -8,7 +8,7 @@ import (
 	"github.com/go-gl/gl/v4.3-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/go-gl/mathgl/mgl32"
-	"home.leo-peltier.fr/poussin/emu/ppu"
+	"github.com/L-P/poussin/emu/ppu"
 )
 
 type Renderer struct {

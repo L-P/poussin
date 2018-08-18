@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"runtime/pprof"
 
-	"home.leo-peltier.fr/poussin/emu"
-	"home.leo-peltier.fr/poussin/renderer/gl"
+	"github.com/L-P/poussin/emu"
+	"github.com/L-P/poussin/renderer/gl"
 )
 
 func main() {
