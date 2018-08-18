@@ -1,6 +1,7 @@
 package ppu
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 )
@@ -72,7 +73,7 @@ func (p *PPU) Cycle() {
 			p.SetSTATLYC(p.LY == p.LYC)
 		} else if p.Cycles >= 80 && p.Cycles <= 84 {
 			p.SetSTATMode(ModeOAM)
-		} else if p.Cycles >= 84 && p.Cycles < 448 {
+		} else if p.Cycles > 84 && p.Cycles < 448 {
 			p.SetSTATMode(ModeHBlank)
 		}
 	} else if p.LY == 144 {
@@ -122,31 +123,38 @@ func (p *PPU) BackBuffer() *image.RGBA {
 func (p *PPU) Draw() {
 	lcdX := byte(p.Cycles / 2)
 	lcdY := p.LY
-	if lcdY > DotMatrixHeight || lcdX > DotMatrixWidth {
+	if lcdY >= DotMatrixHeight || lcdX >= DotMatrixWidth {
 		return
 	}
 
 	x := (lcdX + p.SCX) % DotMatrixWidth
 	y := (lcdY + p.SCY) % DotMatrixHeight
+	p.BackBuffer().SetRGBA(int(x), int(y), Colorize(0))
 
+	if p.LCDCHas(LCDCDisplayBGAndWindow) {
+		p.DrawBackground(x, y)
+	}
+}
+
+func (p *PPU) DrawBackground(x, y byte) {
 	dataAddr := p.GetTileDataAddress(x, y)
 	tileData := p.GetTileData(dataAddr, x, y)
 
 	c := Colorize(p.Palettize(tileData))
 
-	p.BackBuffer().SetRGBA(int(x), int(y), color.RGBA{c, c, c, 255})
+	p.BackBuffer().SetRGBA(int(x), int(y), c)
 }
 
-func Colorize(b byte) byte {
+func Colorize(b byte) color.RGBA {
 	switch b {
 	case 0x00:
-		return 0xFF
+		return color.RGBA{224, 248, 208, 255}
 	case 0x01:
-		return 0xC0
+		return color.RGBA{136, 192, 112, 255}
 	case 0x02:
-		return 0x40
+		return color.RGBA{52, 104, 86, 255}
 	case 0x03:
-		return 0x00
+		return color.RGBA{8, 24, 32, 255}
 	}
 
 	panic("trying to color byte > 3")
@@ -167,27 +175,48 @@ func (p *PPU) Palettize(b byte) byte {
 	panic("trying to palette byte > 3")
 }
 
-// Returns the adress of the tile data for pixel at x,y
-func (p *PPU) GetTileDataAddress(x, y byte) uint16 {
+// GetTileMapID returns the tile ID of the tile that should be displayed at pixel x, y
+func (p *PPU) GetTileMapID(x, y byte) byte {
 	mapOffset, end := p.GetBGTileMapRange()
 	tileX, tileY := uint16(x/8), uint16(y/8)
-	tileIDAddr := mapOffset + tileX + (tileY * 8)
+
+	tileIDAddr := mapOffset + tileX + (tileY * 32)
 	if tileIDAddr > end {
 		panic("fetching tile outside of tile map")
 	}
 
-	tileID := p.FetchVRAM(tileIDAddr)
+	return p.FetchVRAM(tileIDAddr)
+}
 
-	dataOffset, _ := p.GetBGWindowTileDataRange()
-	addr := dataOffset + uint16(tileID)
+// Returns the adress of the tile data for pixel at x,y
+func (p *PPU) GetTileDataAddress(x, y byte) uint16 {
+	tileID := p.GetTileMapID(x, y)
+
+	dataOffset, end := p.GetBGWindowTileDataRange()
+	addr := dataOffset
+	if p.LCDCHas(LCDCBGWindowTileDataSelect) {
+		addr += uint16(tileID) * 16
+	} else {
+		addr += uint16(int16(tileID) * 16)
+	}
+
+	if addr > end {
+		panic(fmt.Errorf("%04X > %04X for tile #%02X", addr, end, tileID))
+	}
 
 	return addr
 }
 
 // Returns the tile data for pixel x,y of tile at address addr
 func (p *PPU) GetTileData(addr uint16, x, y byte) byte {
-	dX, dY := byte(x%8), byte(y%8)
-	b := p.FetchVRAM(addr + uint16(dY))
+	dX := byte(7 - (x % 8))   // one bit per pixel half-color, MSB first
+	dY := uint16(2 * (y % 8)) // two bytes per row
 
-	return (b >> dX) & 0x03
+	a := p.FetchVRAM(addr + dY)
+	b := p.FetchVRAM(addr + dY + 1)
+
+	bit1 := (a & (1 << dX)) >> dX
+	bit2 := (b & (1 << dX)) >> dX
+
+	return bit1 | (bit2 << 1)
 }

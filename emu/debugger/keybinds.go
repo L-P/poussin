@@ -22,6 +22,7 @@ func (d *Debugger) initKeybinds() error {
 		{d.cbStepToInstruction, 'i'},
 		{d.cbStopWhenSB, 'o'},
 		{d.cbStopWhenInterrupt, 'y'},
+		{d.cbStopWhenVSync, 'f'},
 	}
 
 	for _, v := range binds {
@@ -79,6 +80,11 @@ func (d *Debugger) cbPause(g *gocui.Gui, v *gocui.View) error {
 		atomic.StoreInt32(&d.flowState, FlowPause)
 	}
 
+	return nil
+}
+
+func (d *Debugger) cbStopWhenVSync(g *gocui.Gui, v *gocui.View) error {
+	atomic.StoreInt32(&d.flowState, FlowStopWhenVSync)
 	return nil
 }
 
