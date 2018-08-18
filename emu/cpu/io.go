@@ -56,6 +56,8 @@ func (c *CPU) FetchIO(addr uint16) byte {
 	switch addr {
 	case IODisableBootROM:
 		return c.Mem[IODisableBootROM]
+	case IOP1:
+		return 0x0F // TODO handle input
 	case IOIF:
 		return c.FetchIF()
 	case IODIV:
