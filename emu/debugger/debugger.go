@@ -97,12 +97,11 @@ func New(c *cpu.CPU, p *ppu.PPU) (*Debugger, error) {
 	gui.InputEsc = true
 
 	d := Debugger{
-		cpu:       c,
-		ppu:       p,
-		gui:       gui,
-		closed:    abool.New(),
-		hasModal:  abool.New(),
-		flowState: FlowPause,
+		cpu:      c,
+		ppu:      p,
+		gui:      gui,
+		closed:   abool.New(),
+		hasModal: abool.New(),
 	}
 
 	d.gui.SetManagerFunc(d.layout)
