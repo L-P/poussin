@@ -60,8 +60,7 @@ func (r *Renderer) Run(nextFrame <-chan *image.RGBA, shouldClose <-chan bool, cl
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
 	for !r.window.ShouldClose() {
-		width, height := r.window.GetSize()
-		gl.Viewport(0, 0, int32(width), int32(height))
+		r.updateViewport()
 
 		resetGLState()
 		gl.Clear(gl.COLOR_BUFFER_BIT)
@@ -192,4 +191,22 @@ func initWindow() *glfw.Window {
 	glfw.SwapInterval(1)
 
 	return window
+}
+
+func (r *Renderer) updateViewport() {
+	width, height := r.window.GetSize()
+	x1, y1 := int32(0), int32(0)
+	x2 := int32(width)
+	y2 := int32(height)
+
+	targetRatio := float32(ppu.DotMatrixWidth) / float32(ppu.DotMatrixHeight)
+	ratio := float32(width) / float32(height)
+
+	if ratio > targetRatio {
+		x2 = int32(float32(height) * targetRatio)
+	} else if ratio < targetRatio {
+		y2 = int32(float32(width) / targetRatio)
+	}
+
+	gl.Viewport(x1, y1, x2, y2)
 }
