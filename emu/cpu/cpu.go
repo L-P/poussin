@@ -64,6 +64,9 @@ type CPU struct {
 	// SBBuffer contains the bytes written to the serial I/O, it's the debugger
 	// responsibility to clear this buffer (not concurenttly with Execute of course).
 	SBBuffer bytes.Buffer // bytes written to IOSB
+
+	// Jumped indicates if the last conditional call or return did jump
+	Jumped bool
 	// }}} Debug
 
 	// InterruptEnable contains the IE flag, as we only keep 0xFFFF worth of
@@ -123,6 +126,7 @@ func (c *CPU) SimulateBoot() {
 }
 
 func (c *CPU) Step() (int, error) {
+	c.Jumped = false
 	defer c.UpdateTimers()
 
 	c.LastCycleWasInterrupt = false

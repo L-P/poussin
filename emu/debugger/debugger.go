@@ -264,10 +264,9 @@ func (d *Debugger) updateCallDepth() {
 		case 0xF7:
 			fallthrough
 		case 0xFF:
-			fallthrough
+			d.callDepth++
+
 		// CALL
-		case 0xCD:
-			fallthrough
 		case 0xC4:
 			fallthrough
 		case 0xCC:
@@ -275,11 +274,14 @@ func (d *Debugger) updateCallDepth() {
 		case 0xD4:
 			fallthrough
 		case 0xDC:
+			if !d.cpu.Jumped {
+				break;
+			}
+			fallthrough
+		case 0xCD:
 			d.callDepth++
-		case 0xC9:
-			fallthrough
-		case 0xD9:
-			fallthrough
+
+		// RET
 		case 0xC0:
 			fallthrough
 		case 0xC8:
@@ -287,6 +289,13 @@ func (d *Debugger) updateCallDepth() {
 		case 0xD0:
 			fallthrough
 		case 0xD8:
+			if !d.cpu.Jumped {
+				break;
+			}
+			fallthrough
+		case 0xC9:
+			fallthrough
+		case 0xD9:
 			d.callDepth--
 		}
 	}
