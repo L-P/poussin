@@ -2,6 +2,7 @@ package cpu
 
 import "fmt"
 
+// Registers holds the CPU registers and flags.
 type Registers struct {
 	// Registers
 	A             uint8  // Accumulator

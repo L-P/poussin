@@ -5,12 +5,14 @@ import (
 	"image"
 	"runtime"
 
+	"github.com/L-P/poussin/emu/cpu"
+	"github.com/L-P/poussin/emu/ppu"
 	"github.com/go-gl/gl/v4.3-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/L-P/poussin/emu/ppu"
 )
 
+// Renderer is an OpenGL renderer and input handler.
 type Renderer struct {
 	window *glfw.Window
 
@@ -19,6 +21,7 @@ type Renderer struct {
 	texture uint32
 }
 
+// New creates a new Renderer.
 func New() (*Renderer, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -45,13 +48,20 @@ func New() (*Renderer, error) {
 	}, nil
 }
 
+// Close cleans up the renderer state.
 func (r *Renderer) Close() {
 	runtime.LockOSThread()
 	glfw.Terminate()
 	runtime.UnlockOSThread()
 }
 
-func (r *Renderer) Run(nextFrame <-chan *image.RGBA, shouldClose <-chan bool, closed chan<- bool) {
+// Run displays the render window, renders the framebuffer, and updates inputs.
+func (r *Renderer) Run(
+	nextFrame <-chan *image.RGBA,
+	input chan<- cpu.JoypadState,
+	shouldClose <-chan bool,
+	closed chan<- bool,
+) {
 	runtime.LockOSThread()
 
 	gl.UseProgram(r.program)
@@ -77,10 +87,27 @@ func (r *Renderer) Run(nextFrame <-chan *image.RGBA, shouldClose <-chan bool, cl
 
 		r.window.SwapBuffers()
 		glfw.PollEvents()
+		r.sendInputEvents(input)
 	}
 
 	runtime.UnlockOSThread()
 	close(closed)
+}
+
+func (r *Renderer) sendInputEvents(input chan<- cpu.JoypadState) {
+	select {
+	case input <- cpu.JoypadState{
+		A:      r.window.GetKey(glfw.KeyQ) != glfw.Release,
+		B:      r.window.GetKey(glfw.KeyW) != glfw.Release,
+		Select: r.window.GetKey(glfw.KeyA) != glfw.Release,
+		Start:  r.window.GetKey(glfw.KeyS) != glfw.Release,
+		Up:     r.window.GetKey(glfw.KeyUp) != glfw.Release,
+		Right:  r.window.GetKey(glfw.KeyRight) != glfw.Release,
+		Down:   r.window.GetKey(glfw.KeyDown) != glfw.Release,
+		Left:   r.window.GetKey(glfw.KeyLeft) != glfw.Release,
+	}:
+	default:
+	}
 }
 
 func drawPlane(program, vao, texture uint32) {

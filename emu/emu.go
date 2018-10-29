@@ -8,6 +8,7 @@ import (
 	"github.com/L-P/poussin/emu/ppu"
 )
 
+// Gameboy is a DMG emulator.
 type Gameboy struct {
 	cpu cpu.CPU
 	ppu *ppu.PPU
@@ -15,12 +16,16 @@ type Gameboy struct {
 	debugger *debugger.Debugger
 }
 
-func NewGameboy(nextFrame chan<- *image.RGBA) (*Gameboy, error) {
+// NewGameboy creates a new Gameboy.
+func NewGameboy(
+	nextFrame chan<- *image.RGBA,
+	input <-chan cpu.JoypadState,
+) (*Gameboy, error) {
 	gb := Gameboy{
 		ppu: ppu.New(nextFrame),
 	}
 
-	gb.cpu = cpu.New(gb.ppu, true)
+	gb.cpu = cpu.New(gb.ppu, input, true)
 
 	var err error
 	gb.debugger, err = debugger.New(&gb.cpu, gb.ppu)
@@ -31,14 +36,17 @@ func NewGameboy(nextFrame chan<- *image.RGBA) (*Gameboy, error) {
 	return &gb, nil
 }
 
+// LoadBootROM puts a boot rom in the 256 first bytes or RAM.
 func (g *Gameboy) LoadBootROM(rom []byte) error {
 	return g.cpu.LoadBootROM(rom)
 }
 
+// LoadROM loads a ROM in RAM.
 func (g *Gameboy) LoadROM(rom []byte) error {
 	return g.cpu.LoadROM(rom)
 }
 
+// Run the emulation and the debugger.
 func (g *Gameboy) Run(shouldClose <-chan bool, closed chan<- bool) {
 	go g.debugger.RunGUI(shouldClose)
 	defer close(closed)
@@ -63,10 +71,12 @@ func (g *Gameboy) Run(shouldClose <-chan bool, closed chan<- bool) {
 	}
 }
 
+// Close frees up all resources used by the emulator.
 func (g *Gameboy) Close() {
 	g.debugger.Close()
 }
 
+// SimulateBoot puts the CPU in the same state it would be after running the Nintendo boot ROM.
 func (g *Gameboy) SimulateBoot() {
 	g.cpu.SimulateBoot()
 }

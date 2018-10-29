@@ -60,7 +60,7 @@ func runTest(t *testing.T, romPath string, until uint16) {
 }
 
 func getCPU(t *testing.T, romPath string) cpu.CPU {
-	c := cpu.New(ppu.New(nil), true)
+	c := cpu.New(ppu.New(nil), nil, true)
 	c.SimulateBoot()
 
 	rom, err := ioutil.ReadFile(romPath)

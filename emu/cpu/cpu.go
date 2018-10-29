@@ -9,6 +9,7 @@ import (
 	"github.com/L-P/poussin/emu/rom"
 )
 
+// CPU is a Sharp LR35902 emulator.
 type CPU struct {
 	Registers
 
@@ -62,7 +63,7 @@ type CPU struct {
 	LastHighArg byte
 
 	// SBBuffer contains the bytes written to the serial I/O, it's the debugger
-	// responsibility to clear this buffer (not concurenttly with Execute of course).
+	// responsibility to clear this buffer (not concurrently with Execute of course).
 	SBBuffer bytes.Buffer // bytes written to IOSB
 
 	// Jumped indicates if the last conditional call or return did jump
@@ -71,7 +72,7 @@ type CPU struct {
 
 	// InterruptEnable contains the IE flag, as we only keep 0xFFFF worth of
 	// memory we can't address it otherwise.
-	InterruptEnable byte // Adressable at 0xFFFF
+	InterruptEnable byte // Addressable at 0xFFFF
 
 	// InterruptMaster is IME, the global hidden flag set by EI and DI.
 	InterruptMaster bool
@@ -89,12 +90,18 @@ type CPU struct {
 	// the actual DIV register value is the upper 8 bits of this internal
 	// register.
 	InternalDIV uint16
+
+	Joypad      JoypadState
+	JoypadInput <-chan JoypadState
 }
 
-func New(ppu *ppu.PPU, debug bool) CPU {
+// New creates a new CPU object. It is safe to pass a nil input channel if you
+// don't want to send inputs.
+func New(ppu *ppu.PPU, input <-chan JoypadState, debug bool) CPU {
 	c := CPU{
 		PPU:         ppu,
 		EnableDebug: debug,
+		JoypadInput: input,
 	}
 
 	c.Reset()
@@ -102,6 +109,7 @@ func New(ppu *ppu.PPU, debug bool) CPU {
 	return c
 }
 
+// Reset resets the CPU internal state.
 func (c *CPU) Reset() {
 	c.InternalDIV = 0
 	c.WriteIF(0)
@@ -109,6 +117,7 @@ func (c *CPU) Reset() {
 	c.WriteTAC(0)
 }
 
+// SimulateBoot puts the CPU in the same state it would be after running the Nintendo boot ROM.
 func (c *CPU) SimulateBoot() {
 	c.A = 0x01
 	c.SetF(0xB0)
@@ -125,7 +134,9 @@ func (c *CPU) SimulateBoot() {
 	c.WriteIO(IODisableBootROM, 0x01)
 }
 
+// Step runs the next CPU instruction.
 func (c *CPU) Step() (int, error) {
+	c.updateJoypad()
 	c.Jumped = false
 	defer c.UpdateTimers()
 
@@ -172,6 +183,7 @@ func (c *CPU) Step() (int, error) {
 	return c.Execute(ins, l, h)
 }
 
+// Decode decodes an opcode into an Instruction.
 func (c *CPU) Decode(opcode byte, cb bool) (Instruction, error) {
 	ins := Decode(opcode, cb)
 	if !ins.Valid() {
@@ -185,6 +197,7 @@ func (c *CPU) Decode(opcode byte, cb bool) (Instruction, error) {
 	return ins, nil
 }
 
+// Execute runs a single instruction and returns the number of cycles it took to run.
 func (c *CPU) Execute(ins Instruction, l, h byte) (int, error) {
 	c.InCycle = true
 	defer func() { c.InCycle = false }()
@@ -199,6 +212,7 @@ func (c *CPU) Execute(ins Instruction, l, h byte) (int, error) {
 	return int(ins.Cycles), nil
 }
 
+// LoadBootROM puts a boot rom in the 256 first bytes or RAM.
 func (c *CPU) LoadBootROM(data []byte) error {
 	if count := copy(c.Boot[:], data); count != 256 {
 		return fmt.Errorf("did not copy 256 bytes: %d", count)
@@ -207,6 +221,7 @@ func (c *CPU) LoadBootROM(data []byte) error {
 	return nil
 }
 
+// LoadROM loads a ROM in RAM.
 func (c *CPU) LoadROM(data []byte) error {
 	copy(c.ROM[:], data)
 
@@ -218,6 +233,8 @@ func (c *CPU) LoadROM(data []byte) error {
 	return nil
 }
 
+// DoInterrupt jumps to the given interrupt handler and pushes the previous
+// program counter to the stack.
 func (c *CPU) DoInterrupt(addr uint16) int {
 	c.InCycle = true
 	c.StackPush16b(c.PC)
@@ -226,6 +243,8 @@ func (c *CPU) DoInterrupt(addr uint16) int {
 	return 20
 }
 
+// CheckInterrupts checks if any interrupt should run this step instead of
+// continuing execution.
 func (c *CPU) CheckInterrupts() int {
 	// When HALTed, interrupts are active even when IME is off.
 	// IF seems to be reset only if IME is on though.
@@ -256,9 +275,15 @@ func (c *CPU) CheckInterrupts() int {
 		return c.DoInterrupt(0x0040)
 	}
 
+	if c.IFIsSet(IEJoypad) {
+		c.UnSetIF(IEJoypad)
+		return c.DoInterrupt(0x0060)
+	}
+
 	return 0
 }
 
+// UpdateTimers updates the TIMA and DIV registers based on cycle count.
 func (c *CPU) UpdateTimers() {
 	delta := c.Cycle - c.LastTimerUpdateCycle
 	if delta <= 0 {

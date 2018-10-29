@@ -1,6 +1,6 @@
 package cpu
 
-// Reads a byte from mapped memory
+// Fetch reads a byte from mapped memory
 func (c *CPU) Fetch(addr uint16) byte {
 	var v byte
 	switch AddrToMemType(addr) {

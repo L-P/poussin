@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jroimartin/gocui"
-	"github.com/tevino/abool"
 	"github.com/L-P/poussin/emu/cpu"
 	"github.com/L-P/poussin/emu/ppu"
+	"github.com/jroimartin/gocui"
+	"github.com/tevino/abool"
 )
 
 // registers + opcode + CB + low arg + high arg
@@ -63,6 +63,7 @@ type Debugger struct {
 	ioTIMA        byte
 	ioLCDC        byte
 	ioSTAT        byte
+	ioP1          byte
 	ioInternalDIV uint16
 
 	// Performance counters
@@ -75,16 +76,37 @@ type Debugger struct {
 }
 
 const (
+	// FlowRun runs the emulator normally.
 	FlowRun = int32(iota)
+
+	// FlowPause pauses the emulator until it's manually unpaused.
 	FlowPause
+
+	// FlowQuit quits the emulator.
 	FlowQuit
+
+	// FlowStepIn runs until the stack goes one level deeper (eg. a CALL occured)
 	FlowStepIn
+
+	// FlowStepOut runs until the stack goes one level up (eg. a RET occured)
 	FlowStepOut
+
+	// FlowStepOver runs to the next instruction.
 	FlowStepOver
+
+	// FlowStepToOpcode runs until the opcode in stepToOpcode is executed.
 	FlowStepToOpcode
+
+	// FlowStepToPC runs until the program counter reaches stepToPC
 	FlowStepToPC
+
+	// FlowStopWhenInterrupt runs until an interrupt occurs.
 	FlowStopWhenInterrupt
+
+	// FlowStopWhenSB runs until a byte is writter in SB with the value of stopWhenSB
 	FlowStopWhenSB
+
+	// FlowStopWhenVSync runs until the next vertical sync.
 	FlowStopWhenVSync
 )
 
@@ -97,11 +119,12 @@ func New(c *cpu.CPU, p *ppu.PPU) (*Debugger, error) {
 	gui.InputEsc = true
 
 	d := Debugger{
-		cpu:      c,
-		ppu:      p,
-		gui:      gui,
-		closed:   abool.New(),
-		hasModal: abool.New(),
+		cpu:       c,
+		ppu:       p,
+		gui:       gui,
+		closed:    abool.New(),
+		hasModal:  abool.New(),
+		flowState: FlowRun,
 	}
 
 	d.gui.SetManagerFunc(d.layout)
@@ -120,6 +143,7 @@ func (d *Debugger) Close() {
 	}
 }
 
+// RunGUI runs the CLI debugger.
 func (d *Debugger) RunGUI(shouldClose <-chan bool) {
 	guiClosed := make(chan bool)
 	go func() {
@@ -153,10 +177,12 @@ loop:
 	d.gui.Close()
 }
 
+// Closed returns true if the debugger has been closed.
 func (d *Debugger) Closed() bool {
 	return d.closed.IsSet()
 }
 
+// Panic is called when the CPU does something very wrong.
 func (d *Debugger) Panic(err error) {
 	atomic.StoreInt32(&d.flowState, FlowPause)
 	d.lastCPUError = err
@@ -227,6 +253,7 @@ func (d *Debugger) updateIORegisters() {
 	d.ioTIMA = d.cpu.FetchIO(cpu.IOTIMA)
 	d.ioLCDC = d.ppu.LCDC
 	d.ioSTAT = d.ppu.STAT
+	d.ioP1 = d.cpu.FetchIOP1()
 }
 
 func (d *Debugger) updateInstructions() {
@@ -275,7 +302,7 @@ func (d *Debugger) updateCallDepth() {
 			fallthrough
 		case 0xDC:
 			if !d.cpu.Jumped {
-				break;
+				break
 			}
 			fallthrough
 		case 0xCD:
@@ -290,7 +317,7 @@ func (d *Debugger) updateCallDepth() {
 			fallthrough
 		case 0xD8:
 			if !d.cpu.Jumped {
-				break;
+				break
 			}
 			fallthrough
 		case 0xC9:
