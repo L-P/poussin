@@ -11,6 +11,7 @@ import (
 	"runtime/pprof"
 
 	"github.com/L-P/poussin/emu"
+	"github.com/L-P/poussin/emu/cpu"
 	"github.com/L-P/poussin/renderer/gl"
 )
 
@@ -55,8 +56,9 @@ func run() error {
 		os.Exit(1)
 	}
 
+	input := make(chan cpu.JoypadState, 1)
 	nextFrame := make(chan *image.RGBA, 1)
-	gb, err := emu.NewGameboy(nextFrame)
+	gb, err := emu.NewGameboy(nextFrame, input)
 	if err != nil {
 		return err
 	}
@@ -103,7 +105,7 @@ func run() error {
 	closeRenderer := make(chan bool)
 
 	go gb.Run(closeEmu, emuClosed)
-	go r.Run(nextFrame, closeRenderer, rendererClosed)
+	go r.Run(nextFrame, input, closeRenderer, rendererClosed)
 
 	select {
 	case <-emuClosed:

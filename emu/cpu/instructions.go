@@ -638,6 +638,7 @@ func i_call_nz(c *CPU, l, h byte) {
 
 	c.StackPush16b(c.PC)
 	c.PC = (uint16(h) << 8) | uint16(l)
+	c.Jumped = true
 }
 
 // If C is not set, pushes the address of the next instruction onto the stack and jump
@@ -648,6 +649,7 @@ func i_call_nc(c *CPU, l, h byte) {
 
 	c.StackPush16b(c.PC)
 	c.PC = (uint16(h) << 8) | uint16(l)
+	c.Jumped = true
 }
 
 // If C is set, pushes the address of the next instruction onto the stack and jump
@@ -658,6 +660,7 @@ func i_call_c(c *CPU, l, h byte) {
 
 	c.StackPush16b(c.PC)
 	c.PC = (uint16(h) << 8) | uint16(l)
+	c.Jumped = true
 }
 
 // If Z is set, pushes the address of the next instruction onto the stack and jump
@@ -668,6 +671,7 @@ func i_call_z(c *CPU, l, h byte) {
 
 	c.StackPush16b(c.PC)
 	c.PC = (uint16(h) << 8) | uint16(l)
+	c.Jumped = true
 }
 
 // Pops a two bytes address stack and jump to it
@@ -685,6 +689,7 @@ func i_reti(c *CPU, _, _ byte) {
 func i_ret_z(c *CPU, _, _ byte) {
 	if c.FlagZero {
 		c.PC = c.StackPop16b()
+		c.Jumped = true
 	}
 }
 
@@ -692,6 +697,7 @@ func i_ret_z(c *CPU, _, _ byte) {
 func i_ret_nz(c *CPU, _, _ byte) {
 	if !c.FlagZero {
 		c.PC = c.StackPop16b()
+		c.Jumped = true
 	}
 }
 
@@ -699,6 +705,7 @@ func i_ret_nz(c *CPU, _, _ byte) {
 func i_ret_c(c *CPU, _, _ byte) {
 	if c.FlagCarry {
 		c.PC = c.StackPop16b()
+		c.Jumped = true
 	}
 }
 
@@ -706,6 +713,7 @@ func i_ret_c(c *CPU, _, _ byte) {
 func i_ret_nc(c *CPU, _, _ byte) {
 	if !c.FlagCarry {
 		c.PC = c.StackPop16b()
+		c.Jumped = true
 	}
 }
 
